@@ -100,7 +100,7 @@
 			function showDataStatus(){
 				var vp = grid.getViewport(),
                 	method = (loader.isDataReady(vp.top, vp.bottom)) ? 'hide' : 'show';
-				console.log(vp.top, vp.bottom, method, loader);
+				//console.log(vp.top, vp.bottom, method, loader);
 				loadingIndicator[method]();
 			}
 

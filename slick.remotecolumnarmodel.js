@@ -1,14 +1,29 @@
 (function($) {
 	function RemoteModel() {
 		// private
-		var PAGESIZE = 50;
 		var data = {length:0};
 
 		// events
 		var onDataLoading = new Slick.Event();
 		var onDataLoaded = new Slick.Event();
+		var onDataLoadFailure = new Slick.Event();
+
+		// data row status codes:
+		var VIRGIN = 0,
+			REQUESTED = 1,
+			READY = 2;
+
+		function getRowStatus(rownum){
+			var r = data[rownum];
+			return r ? READY : (r === undefined ? VIRGIN : REQUESTED);
+		}
+		function setRowStatus(rownum, stat){
+			if (stat === VIRGIN) delete data[rownum];
+			else if (stat === REQUESTED) data[rownum] = null;
+		}
 
 		function ensureData(from, to) {
+			var PAGESIZE = 50;
 			// stay in bounds
 			if (from < 0) from = 0;
 			if (data.length && to >= data.length) to = data.length - 1;
@@ -19,47 +34,47 @@
 			// so if (from - to) < optimal chunk size, reach further back and forward 
 			// as needed to expand chunk size
 
-			var fwd = (data[from] !== undefined && data[to] === undefined),
-				rew = (data[to] !== undefined && data[from] === undefined);
+			var fwd = (getRowStatus(from) !== VIRGIN && getRowStatus(to) === VIRGIN),
+				rew = (getRowStatus(to) !== VIRGIN && getRowStatus(from) === VIRGIN);
 
 			if (fwd) {
 				// find first row we need
-				while (data[from] !== undefined && from < to) from++;
+				while (getRowStatus(from) !== VIRGIN && from < to) from++;
 				// expand chunk size but not bigger than needed
-				while (to < from+PAGESIZE && data[to] === undefined) to++;
+				while (to < from+PAGESIZE && getRowStatus(to) === VIRGIN) to++;
 			} else if (rew) {
 				// find last row we need
-				while (data[to] !== undefined && from < to) to--;
-				while (from > to-PAGESIZE && data[from] === undefined) from--;
+				while (getRowStatus(to) !== VIRGIN && from < to) to--;
+				while (from > to-PAGESIZE && getRowStatus(from) === VIRGIN) from--;
 			} else { // missing chunk in middle or whole viewport
-				while (data[from] !== undefined && from < to) from++;
-				while (data[to] !== undefined && from < to) to--;
+				while (getRowStatus(from) !== VIRGIN && from < to) from++;
+				while (getRowStatus(to) !== VIRGIN && from < to) to--;
 			}
 
 			var url = '/g16e/bigFakeTable/' + from + '/' + (to - from + 1);
 
-			for (var i=from; i<=to; i++) data[i] = null; // null indicates a 'requested but not available yet'
-			onDataLoading.notify();
+			// mark rows as requested that way another request won't try to get same 
+			// rows if 2nd request is launched before 1st one returns
+			for (var i=from; i<=to; i++) setRowStatus(i, REQUESTED);
+			onDataLoading.notify({from: from, to: to});
 			$.ajax({
 				url: url,
 				success: function(resp){ onSuccess(resp, from, to); },
 				error: function(jqxhr, textstatus, error){
-					//alert("error loading rows " + from + " to " + to);
-					console.log('***** err ******', jqxhr, textstatus, error, from, to, data);
+					for (var i=from; i<=to; i++) if (getRowStatus[i] === REQUESTED) setRowStatus(i, VIRGIN);
+					onDataLoadFailure.notify({from: from, to: to, textstatus: textstatus, error: error});
 				}
 			});
 		}
 
 		function onSuccess(resp, from, to) {
 			resp = eval(resp);
-			//console.log('resp:', from, to, resp);
 			data.length = Number(resp.totalrows);
 
 			for (var i = 0; i < resp.numrows; i++) {
 				data[from + i] = {col1: resp.data.col1[i], col2: resp.data.col2[i], col3: resp.data.col3[i]};
 				data[from + i].index = from + i;
 			}
-			//console.log('data:', data);
 
 			onDataLoaded.notify({from:from, to:to});
 		}
@@ -71,15 +86,16 @@
 
 		return {
 			// properties
-			"data": data,
+			data: data,
 
 			// methods
-			"ensureData": ensureData,
-			"isDataReady": isDataReady,
+			ensureData: ensureData,
+			isDataReady: isDataReady,
 
 			// events
-			"onDataLoading": onDataLoading,
-			"onDataLoaded": onDataLoaded
+			onDataLoading: onDataLoading,
+			onDataLoaded: onDataLoaded,
+			onDataLoadFailure: onDataLoadFailure
 		};
 	}
 
