@@ -60,33 +60,11 @@
 			enableAddRow: false,
 			enableCellNavigation: false,
 			enableColumnReorder: false // true by default, requires jquery-ui if true
-			//nothing: null
 		};
 
 		$(function() {
-			var loadingIndicator = null,
-				ROWBUFFER = 25;
-			grid = new Slick.Grid("#myGrid", loader.data, columns, options);
-
-			grid.onViewportChanged.subscribe(ensureDataLoaded);
-			function ensureDataLoaded(e, args) {
-				args = args || {};
-				//args.recurse = args.recurse || 0;
-				//args.top = args.top || undefined;
-//console.log('-->vpc top, recurse, <25', args.top, args.recurse,  args.top&&Math.abs(args.top - vp.top) < 25 );
-//console.log('-->vpc', args);
-                var vp = grid.getViewport();
-				if (args.now || (args.top && Math.abs(args.top - vp.top) < 25 )) { 
-					//console.log('------>vpc args.now args.top, recurse, <25', args.now, args.top, args.recurse, args.top&&Math.abs(args.top - vp.top) < 25 );
-                	loader.ensureData(vp.top - ROWBUFFER, vp.bottom + ROWBUFFER);
-				} else {
-//console.log('no');
-					setTimeout(function(){ ensureDataLoaded(null, {top: vp.top/*, recurse: args.recurse + 1*/}) }, 500);
-					//console.log('recurse vp.top, args.top, args.now',  vp.top, args.top, args.now, Math.abs(args.top - vp.top) );
-				}
-            }
-
-			loadingIndicator = (function(){
+			var ROWBUFFER = 25;
+			var loadingIndicator = (function(){
 				var ind = $("<span class='loading-indicator'><label>Buffering...</label></span>").appendTo(document.body).hide();
 				var $g = $("#myGrid");
 					ind.css("position", "absolute")
@@ -94,37 +72,47 @@
 						.css("left", $g.position().left + $g.width()/2 - ind.width()/2);
 				return ind;
 			}());
+			grid = new Slick.Grid("#myGrid", loader.data, columns, options);
 
-			grid.onViewportChanged.subscribe(showDataStatus);
+			function ensureDataLoaded(e, args) {
+				args = args || {};
+                var vp = grid.getViewport();
+				// we don't want to load the data right away if user is scrolling quickly
+				if (args.now || (args.top && Math.abs(args.top - vp.top) < ROWBUFFER )) { 
+                	loader.ensureData(vp.top - ROWBUFFER, vp.bottom + ROWBUFFER);
+				} else {
+					setTimeout(function(){ ensureDataLoaded(null, {top: vp.top}) }, 500);
+				}
+            }
 
 			function showDataStatus(){
 				var vp = grid.getViewport(),
                 	method = (loader.isDataReady(vp.top, vp.bottom)) ? 'hide' : 'show';
-				//console.log(vp.top, vp.bottom, method, loader);
 				loadingIndicator[method]();
 			}
 
+			grid.onViewportChanged.subscribe(ensureDataLoaded);
+			grid.onViewportChanged.subscribe(showDataStatus);
+
+			// avoid asking for more data while there is a request in flight
 			loader.onDataLoading.subscribe(function() {
 				grid.onViewportChanged.unsubscribe(ensureDataLoaded);
 			});
 
 			loader.onDataLoaded.subscribe(function(e,args) {
-				//console.log('dataLoaded e, args', e,args);
-				// TODO: probably don't need to do this if we are not trying to load rows that are already loaded and didn't change
-				for (var i = args.from; i <= args.to; i++) {
-					grid.invalidateRow(i);
-				}
+				// need to do this even if we are not trying to reload rows that are already loaded, not sure why though
+				for (var i = args.from; i <= args.to; i++) grid.invalidateRow(i);
 
 				grid.updateRowCount(); // if we know the rows won't change we don't need to do this every time
-				grid.render(); // do we need this if we're just adding new data?
+				grid.render(); // need to do this even if we're just adding new data
 				grid.onViewportChanged.subscribe(ensureDataLoaded);
-				grid.onViewportChanged.notify({now: true}); // in case user scrolled since
+				ensureDataLoaded(null, {now: true}); // in case user scrolled since
 
 				showDataStatus();
 			});
 
 			// load the first page
-			grid.onViewportChanged.notify({now: true});
+			ensureDataLoaded(null, {now: true});
 		});
 		</script>
 	</body>
