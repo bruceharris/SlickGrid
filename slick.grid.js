@@ -1295,12 +1295,12 @@ if (typeof Slick === "undefined") {
         }
 
         function getVisibleRange(viewportTop) {
+            var maxLength = getDataLength() - (options.enableAddrow ? 0 : 1);
             if (viewportTop == null)
                 viewportTop = scrollTop;
-
             return {
                 top: Math.floor((scrollTop+offset)/options.rowHeight),
-                bottom: Math.floor((scrollTop+offset+viewportH)/options.rowHeight)
+                bottom: Math.min(maxLength, Math.floor((scrollTop+offset+viewportH)/options.rowHeight))
             };
         }
 
