@@ -1,0 +1,131 @@
+<!DOCTYPE HTML>
+<html>
+	<head>
+		<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+		<title>Big Fake Table example</title>
+		<link rel="stylesheet" href="../slick.grid.css" type="text/css" media="screen" charset="utf-8" />
+        <link rel="stylesheet" href="../css/smoothness/jquery-ui-1.8.5.custom.css" type="text/css" media="screen" charset="utf-8" />
+		<link rel="stylesheet" href="examples.css" type="text/css" media="screen" charset="utf-8" />
+		<style>
+		.cell-story {
+			white-space: normal!important;
+      line-height: 19px!important;
+		}
+
+		.loading-indicator {
+			display: inline-block;
+			padding: 12px;
+			background: white;
+			-opacity: 0.5;
+			color: black;
+			font-weight: bold;
+			z-index: 9999;
+			border: 1px solid red;
+			-moz-border-radius: 10px;
+			-webkit-border-radius: 10px;
+			-moz-box-shadow: 0 0 5px red;
+			-webkit-box-shadow: 0px 0px 5px red;
+			-text-shadow: 1px 1px 1px white;
+		}
+
+		.loading-indicator label {
+			padding-left: 20px;
+			background: url('../images/ajax-loader-small.gif') no-repeat center left;
+		}
+		</style>
+	</head>
+	<body>
+		<div id="myGrid" style="width:100%;height:410px;"></div>
+
+		<script src="../lib/jquery-1.4.3.min.js"></script>
+		<script src="../lib/jquery.event.drag-2.0.min.js"></script>
+		<script src="../lib/jquery.jsonp-1.1.0.min.js"></script>
+
+		<script src="../slick.core.js"></script>
+		<script src="../slick.remotecolumnarmodel.js"></script>
+		<script src="../slick.grid.js"></script>
+
+		<script>
+		var grid;
+		var loader = new Slick.Data.RemoteModel();
+
+		var columns = [
+			{id:"num", name:"Larry", field:"col1", width:100},
+			{id:"linko", name:"Curly", field:"col2", width:100},
+			{id:"too", name:"Moe", field:"col3", width:100}
+		];
+
+		var options = {
+			editable: false,
+			enableAddRow: false,
+			enableCellNavigation: false,
+			enableColumnReorder: false // true by default, requires jquery-ui if true
+			//nothing: null
+		};
+
+		$(function() {
+			var loadingIndicator = null,
+				ROWBUFFER = 25;
+			grid = new Slick.Grid("#myGrid", loader.data, columns, options);
+
+			grid.onViewportChanged.subscribe(ensureDataLoaded);
+			function ensureDataLoaded(e, args) {
+				args = args || {};
+				//args.recurse = args.recurse || 0;
+				//args.top = args.top || undefined;
+//console.log('-->vpc top, recurse, <25', args.top, args.recurse,  args.top&&Math.abs(args.top - vp.top) < 25 );
+//console.log('-->vpc', args);
+                var vp = grid.getViewport();
+				if (args.now || (args.top && Math.abs(args.top - vp.top) < 25 )) { 
+					//console.log('------>vpc args.now args.top, recurse, <25', args.now, args.top, args.recurse, args.top&&Math.abs(args.top - vp.top) < 25 );
+                	loader.ensureData(vp.top - ROWBUFFER, vp.bottom + ROWBUFFER);
+				} else {
+//console.log('no');
+					setTimeout(function(){ ensureDataLoaded(null, {top: vp.top/*, recurse: args.recurse + 1*/}) }, 500);
+					//console.log('recurse vp.top, args.top, args.now',  vp.top, args.top, args.now, Math.abs(args.top - vp.top) );
+				}
+            }
+
+			loadingIndicator = (function(){
+				var ind = $("<span class='loading-indicator'><label>Buffering...</label></span>").appendTo(document.body).hide();
+				var $g = $("#myGrid");
+					ind.css("position", "absolute")
+						.css("top", $g.position().top + $g.height()/2 - ind.height()/2)
+						.css("left", $g.position().left + $g.width()/2 - ind.width()/2);
+				return ind;
+			}());
+
+			grid.onViewportChanged.subscribe(showDataStatus);
+
+			function showDataStatus(){
+				var vp = grid.getViewport(),
+                	method = (loader.isDataReady(vp.top, vp.bottom)) ? 'hide' : 'show';
+				console.log(vp.top, vp.bottom, method, loader);
+				loadingIndicator[method]();
+			}
+
+			loader.onDataLoading.subscribe(function() {
+				grid.onViewportChanged.unsubscribe(ensureDataLoaded);
+			});
+
+			loader.onDataLoaded.subscribe(function(e,args) {
+				//console.log('dataLoaded e, args', e,args);
+				// TODO: probably don't need to do this if we are not trying to load rows that are already loaded and didn't change
+				for (var i = args.from; i <= args.to; i++) {
+					grid.invalidateRow(i);
+				}
+
+				grid.updateRowCount(); // if we know the rows won't change we don't need to do this every time
+				grid.render(); // do we need this if we're just adding new data?
+				grid.onViewportChanged.subscribe(ensureDataLoaded);
+				grid.onViewportChanged.notify({now: true}); // in case user scrolled since
+
+				showDataStatus();
+			});
+
+			// load the first page
+			grid.onViewportChanged.notify({now: true});
+		});
+		</script>
+	</body>
+</html>
