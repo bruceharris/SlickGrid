@@ -1300,7 +1300,7 @@ if (typeof Slick === "undefined") {
 
             return {
                 top: Math.floor((scrollTop+offset)/options.rowHeight),
-                bottom: Math.ceil((scrollTop+offset+viewportH)/options.rowHeight)
+                bottom: Math.floor((scrollTop+offset+viewportH)/options.rowHeight)
             };
         }
 
