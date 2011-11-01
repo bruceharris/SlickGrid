@@ -1,5 +1,5 @@
 (function($) {
-	// args: colNames, url
+	// args: colNames, url, [pageSize]
 	function RemoteModel(args){
 		// private
 		var data = {length:0};
@@ -28,7 +28,8 @@
 		}
 
 		function ensureData(from, to) {
-			var PAGESIZE = 50;
+			var PAGESIZE = args.pageSize || 50;
+
 			// stay in bounds
 			if (from < 0) from = 0;
 			if (data.length && to >= data.length) to = data.length - 1;

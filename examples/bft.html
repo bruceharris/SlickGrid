@@ -39,7 +39,6 @@
 
 		<script src="../lib/jquery-1.4.3.min.js"></script>
 		<script src="../lib/jquery.event.drag-2.0.min.js"></script>
-		<script src="../lib/jquery.jsonp-1.1.0.min.js"></script>
 
 		<script src="../slick.core.js"></script>
 		<script src="../slick.remotecolumnarmodel.js"></script>
@@ -47,13 +46,23 @@
 
 		<script>
 		var grid;
-		var loader = new Slick.Data.RemoteModel();
 
+		// id is required, can be the same as field but doesn't have to be
+		// name is optional, but if omitted no header will appear
+		// field is required, this is the mapping to the data object
 		var columns = [
-			{id:"num", name:"Larry", field:"col1", width:100},
-			{id:"linko", name:"Curly", field:"col2", width:100},
-			{id:"too", name:"Moe", field:"col3", width:100}
+			{id:"col1", name:"Larry", field:"col1", width:100},
+			{id:"col2", name:"Curly", field:"col2", width:100},
+			{id:"col3", name:"Moe", field:"col3", width:100}
 		];
+		var loader = new Slick.Data.RemoteModel({
+			url: '/g16e/bigFakeTable/',
+			colNames: (function(){
+				return $.map(columns, function(el, i){
+					return el.field;
+				})
+			}())
+		});
 
 		var options = {
 			editable: false,
