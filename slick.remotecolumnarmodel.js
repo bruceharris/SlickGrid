@@ -1,4 +1,5 @@
 (function($) {
+	// need to take as args: columns, url
 	function RemoteModel() {
 		// private
 		var data = {length:0};
@@ -21,6 +22,10 @@
 			if (stat === VIRGIN) delete data[rownum];
 			else if (stat === REQUESTED) data[rownum] = null;
 		}
+		function anyRowsNeeded(from, to){
+			for (var i=from; i<=to; i++) if (getRowStatus(i) === VIRGIN) return true;
+			return false;
+		}
 
 		function ensureData(from, to) {
 			var PAGESIZE = 50;
@@ -28,7 +33,7 @@
 			if (from < 0) from = 0;
 			if (data.length && to >= data.length) to = data.length - 1;
 
-			if (isDataReady(from, to)) return;
+			if (!anyRowsNeeded(from, to)) return;
 
 			// ensure we are getting a decent size chunk in each request
 			// so if (from - to) < optimal chunk size, reach further back and forward 
