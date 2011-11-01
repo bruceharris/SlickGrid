@@ -55,7 +55,7 @@
 			{id:"col2", name:"Curly", field:"col2", width:100},
 			{id:"col3", name:"Moe", field:"col3", width:100}
 		];
-		var loader = new Slick.Data.RemoteModel({
+		var loader = Slick.Data.makeRemoteModel({
 			url: '/g16e/bigFakeTable/',
 			colNames: (function(){
 				return $.map(columns, function(el, i){
@@ -81,7 +81,7 @@
 						.css("left", $g.position().left + $g.width()/2 - ind.width()/2);
 				return ind;
 			}());
-			grid = new Slick.Grid("#myGrid", loader.data, columns, options);
+			grid = new Slick.Grid("#myGrid", loader, columns, options);
 
 			function ensureDataLoaded(e, args) {
 				args = args || {};

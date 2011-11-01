@@ -1,2 +1,5 @@
 .gitk*
+.gitignore
 .idea/*
+*.swp
+.DS_Store

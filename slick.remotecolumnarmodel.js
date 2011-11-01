@@ -1,6 +1,6 @@
 (function($) {
 	// args: colNames, url, [pageSize]
-	function RemoteModel(args){
+	function makeRemoteModel(args){
 		// private
 		var data = {length:0};
 
@@ -84,7 +84,6 @@
 					var col = args.colNames[colIdx];
 					row[col] = resp.data[col][i];
 				}
-//				data[from + i].index = from + i; // do we need this? need to look at source
 			}
 
 			onDataLoaded.notify({from:from, to:to});
@@ -97,11 +96,15 @@
 
 		return {
 			// properties
-			data: data,
+			_data: data, // exposed for debugging
 
 			// methods
 			ensureData: ensureData,
 			isDataReady: isDataReady,
+
+			// grid api methods
+			getItem: function (i) { return data[i]; },
+			getLength: function () { return data.length; },
 
 			// events
 			onDataLoading: onDataLoading,
@@ -111,5 +114,5 @@
 	}
 
 	// Slick.Data.RemoteModel
-	$.extend(true, window, { Slick: { Data: { RemoteModel: RemoteModel }}});
+	$.extend(true, window, { Slick: { Data: { makeRemoteModel: makeRemoteModel }}});
 })(jQuery);
