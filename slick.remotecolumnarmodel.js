@@ -1,6 +1,6 @@
 (function($) {
-	// need to take as args: columns, url
-	function RemoteModel() {
+	// args: colNames, url
+	function RemoteModel(args){
 		// private
 		var data = {length:0};
 
@@ -56,7 +56,7 @@
 				while (getRowStatus(to) !== VIRGIN && from < to) to--;
 			}
 
-			var url = '/g16e/bigFakeTable/' + from + '/' + (to - from + 1);
+			var url = args.url + from + '/' + (to - from + 1);
 
 			// mark rows as requested that way another request won't try to get same 
 			// rows if 2nd request is launched before 1st one returns
@@ -77,8 +77,13 @@
 			data.length = Number(resp.totalrows);
 
 			for (var i = 0; i < resp.numrows; i++) {
-				data[from + i] = {col1: resp.data.col1[i], col2: resp.data.col2[i], col3: resp.data.col3[i]};
-				data[from + i].index = from + i;
+				var row = data[from + i] = {},
+					colLen = args.colNames.length;
+				for (var colIdx = 0; colIdx < colLen; colIdx++) {
+					var col = args.colNames[colIdx];
+					row[col] = resp.data[col][i];
+				}
+//				data[from + i].index = from + i; // do we need this? need to look at source
 			}
 
 			onDataLoaded.notify({from:from, to:to});
