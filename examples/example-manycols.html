@@ -1,0 +1,71 @@
+<!DOCTYPE HTML>
+<html>
+	<head>
+		<meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1">
+		<title>SlickGrid example 1: Basic grid</title>
+		<link rel="stylesheet" href="../slick.grid.css" type="text/css" media="screen" charset="utf-8" />
+        <link rel="stylesheet" href="../css/smoothness/jquery-ui-1.8.5.custom.css" type="text/css" media="screen" charset="utf-8" />
+		<link rel="stylesheet" href="examples.css" type="text/css" media="screen" charset="utf-8" />
+	</head>
+	<body>
+		<table width="100%">
+		<tr>
+			<td valign="top" width="50%">
+				<div id="myGrid" style="width:600px;height:500px;display:none;"></div>
+			</td>
+			<td valign="top">
+				<h2>Demonstrates:</h2>
+				<ul>
+					<li>basic grid with minimal configuration</li>
+				</ul>
+			</td>
+		</tr>
+		</table>
+
+		<script src="../lib/jquery-1.4.3.min.js"></script>
+		<script src="../lib/jquery.event.drag-2.0.min.js"></script>
+
+        <script src="../slick.core.js"></script>
+        <script src="../slick.grid.js"></script>
+
+		<script>
+
+		var grid;
+
+		var columns = [], REPEAT = 19;
+		for (var j = 0; j < REPEAT; j++) {
+			columns.push({id:"title" + j, name:"Title" + j, field:"title" + j});
+			columns.push({id:"duration" + j, name:"Duration" + j, field:"duration" + j});
+			columns.push({id:"%" + j, name:"% Complete" + j, field:"percentComplete" + j});
+			columns.push({id:"start" + j, name:"Start" + j, field:"start" + j});
+			columns.push({id:"finish" + j, name:"Finish" + j, field:"finish" + j});
+			columns.push({id:"effort-driven" + j, name:"Effort Driven" + j, field:"effortDriven" + j});
+		}
+
+		var options = {
+			enableCellNavigation: true,
+            enableColumnReorder: false
+		};
+
+		$(function() {
+            var data = [];
+			for (var i = 0; i < 500; i++) {
+				var r = data[i] = {};
+				for (var j = 0; j < REPEAT; j++) {
+                    r['title' + j] = "Task " + i;
+                    r['duration' + j] = "5 days";
+                    r['percentComplete' + j] = Math.round(Math.random() * 100);
+                    r['start' + j] = "01/01/2009";
+                    r['finish' + j] = "01/05/2009";
+                    r['effortDriven' + j] = (i % 5 == 0);
+				}
+			}
+
+			grid = new Slick.Grid("#myGrid", data, columns, options);
+
+            $("#myGrid").show();
+		})
+
+		</script>
+	</body>
+</html>
