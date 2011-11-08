@@ -32,38 +32,29 @@
 
 		var grid;
 
-		var columns = [], REPEAT = 19;
-		for (var j = 0; j < REPEAT; j++) {
-			columns.push({id:"title" + j, name:"Title" + j, field:"title" + j});
-			columns.push({id:"duration" + j, name:"Duration" + j, field:"duration" + j});
-			columns.push({id:"%" + j, name:"% Complete" + j, field:"percentComplete" + j});
-			columns.push({id:"start" + j, name:"Start" + j, field:"start" + j});
-			columns.push({id:"finish" + j, name:"Finish" + j, field:"finish" + j});
-			columns.push({id:"effort-driven" + j, name:"Effort Driven" + j, field:"effortDriven" + j});
+		var columns = [], ROWS = 500; COLS = 11;
+		for (var c = 0; c < COLS; c++) {
+			columns.push({id:'col' + c, name:'Col ' + c, field:'col' + c});
 		}
 
 		var options = {
-			enableCellNavigation: true,
-            enableColumnReorder: false
+			//enableCellNavigation: true,
+            enableColumnReorder: false,
+			defaultColumnWidth: 50
 		};
 
 		$(function() {
             var data = [];
-			for (var i = 0; i < 500; i++) {
-				var r = data[i] = {};
-				for (var j = 0; j < REPEAT; j++) {
-                    r['title' + j] = "Task " + i;
-                    r['duration' + j] = "5 days";
-                    r['percentComplete' + j] = Math.round(Math.random() * 100);
-                    r['start' + j] = "01/01/2009";
-                    r['finish' + j] = "01/05/2009";
-                    r['effortDriven' + j] = (i % 5 == 0);
+			for (var r = 0; r < ROWS; r++) {
+				data[r] = {};
+				for (var c = 0; c < COLS; c++) {
+                    data[r]['col' + c] = Math.round(Math.random() * 100);
 				}
 			}
 
-			grid = new Slick.Grid("#myGrid", data, columns, options);
+			grid = new Slick.Grid('#myGrid', data, columns, options);
 
-            $("#myGrid").show();
+            $('#myGrid').show();
 		})
 
 		</script>
