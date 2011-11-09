@@ -261,14 +261,14 @@ if (typeof Slick === "undefined") {
                 .bind("click.slickgrid", handleHeaderClick);
 
             $canvas
-                .bind("keydown.slickgrid", handleKeyDown)
-                .bind("click.slickgrid", handleClick)
+                //bh .bind("keydown.slickgrid", handleKeyDown)
+                //bh .bind("click.slickgrid", handleClick)
                 .bind("dblclick.slickgrid", handleDblClick)
                 .bind("contextmenu.slickgrid", handleContextMenu)
-                .bind("draginit", handleDragInit)
-                .bind("dragstart", handleDragStart)
-                .bind("drag", handleDrag)
-                .bind("dragend", handleDragEnd);
+                //bh .bind("draginit", handleDragInit)
+                //bh .bind("dragstart", handleDragStart)
+                //bh .bind("drag", handleDrag)
+                //bh .bind("dragend", handleDragEnd);
 
             $canvas.delegate(".slick-cell", "mouseenter", handleMouseEnter);
             $canvas.delegate(".slick-cell", "mouseleave", handleMouseLeave);
@@ -1249,125 +1249,17 @@ if (typeof Slick === "undefined") {
         //////////////////////////////////////////////////////////////////////////////////////////////
         // Interactivity
 
-        function handleDragInit(e,dd) {
-            var cell = getCellFromEvent(e);
-            if (!cell || !cellExists(cell.row, cell.cell)) {
-                return false;
-            }
+        //bh function handleDragInit(e,dd) 
 
-            retval = trigger(self.onDragInit, dd, e);
-            if (e.isImmediatePropagationStopped()) {
-                return retval;
-            }
+        //bh function handleDragStart(e,dd) 
 
-            // if nobody claims to be handling drag'n'drop by stopping immediate propagation,
-            // cancel out of it
-            return false;
-        }
+        //bh function handleDrag(e,dd) 
 
-        function handleDragStart(e,dd) {
-            var cell = getCellFromEvent(e);
-            if (!cell || !cellExists(cell.row, cell.cell)) {
-                return false;
-            }
+        //bh function handleDragEnd(e,dd) 
 
-            var retval = trigger(self.onDragStart, dd, e);
-            if (e.isImmediatePropagationStopped()) {
-                return retval;
-            }
+        //bh function handleKeyDown(e) 
 
-            return false;
-        }
-
-        function handleDrag(e,dd) {
-            return trigger(self.onDrag, dd, e);
-        }
-
-        function handleDragEnd(e,dd) {
-            trigger(self.onDragEnd, dd, e);
-        }
-
-        function handleKeyDown(e) {
-            trigger(self.onKeyDown, {}, e);
-            var handled = e.isImmediatePropagationStopped();
-
-            if (!handled) {
-                if (!e.shiftKey && !e.altKey && !e.ctrlKey) {
-                    if (e.which == 27) {
-                        if (!getEditorLock().isActive()) {
-                            return; // no editing mode to cancel, allow bubbling and default processing (exit without cancelling the event)
-                        }
-                        cancelEditAndSetFocus();
-                    }
-                    else if (e.which == 37) {
-                        navigateLeft();
-                    }
-                    else if (e.which == 39) {
-                        navigateRight();
-                    }
-                    else if (e.which == 38) {
-                        navigateUp();
-                    }
-                    else if (e.which == 40) {
-                        navigateDown();
-                    }
-                    else if (e.which == 9) {
-                        navigateNext();
-                    }
-                    else if (e.which == 13) {
-                        if (options.editable) {
-                            if (currentEditor) {
-                                // adding new row
-                                if (activeRow === getDataLength()) {
-                                    navigateDown();
-                                }
-                                else {
-                                    commitEditAndSetFocus();
-                                }
-                            } else {
-                                if (getEditorLock().commitCurrentEdit()) {
-                                    makeActiveCellEditable();
-                                }
-                            }
-                        }
-                    }
-                    else
-                        return;
-                }
-                else if (e.which == 9 && e.shiftKey && !e.ctrlKey && !e.altKey) {
-                    navigatePrev();
-                }
-                else
-                    return;
-            }
-
-            // the event has been handled so don't let parent element (bubbling/propagation) or browser (default) handle it
-            e.stopPropagation();
-            e.preventDefault();
-            try {
-                e.originalEvent.keyCode = 0; // prevent default behaviour for special keys in IE browsers (F3, F5, etc.)
-            }
-            catch (error) {} // ignore exceptions - setting the original event's keycode throws access denied exception for "Ctrl" (hitting control key only, nothing else), "Shift" (maybe others)
-        }
-
-        function handleClick(e) {
-            var cell = getCellFromEvent(e);
-            if (!cell || (currentEditor !== null && activeRow == cell.row && activeCell == cell.cell)) {
-                return;
-            }
-
-            trigger(self.onClick, {row:cell.row, cell:cell.cell}, e);
-            if (e.isImmediatePropagationStopped()) {
-                return;
-            }
-
-            if (canCellBeActive(cell.row, cell.cell)) {
-                if (!getEditorLock().isActive() || getEditorLock().commitCurrentEdit()) {
-                    scrollRowIntoView(cell.row,false);
-                    setActiveCellInternal(getCellNode(cell.row,cell.cell), (cell.row === getDataLength()) || options.autoEdit);
-                }
-            }
-        }
+        //bh function handleClick(e) 
 
         function handleContextMenu(e) {
             var $cell = $(e.target).closest(".slick-cell", $canvas);
