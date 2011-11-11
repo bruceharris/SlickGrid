@@ -68,14 +68,10 @@
 // >> generalize
 			$.ajax({
 				url: url,
-				dataType: 'json',
-				complete: function(x, text){
-					console.log(text);
-					console.log(x);
-				},
+				dataType: 'text',
 				success: function(resp){ loadData(resp, from, to); },
 				error: function(jqxhr, textstatus, error){
-					for (var i=from; i<=to; i++) if (getRowStatus[i] === REQUESTED) setRowStatus(i, VIRGIN);
+					for (var i=from; i<=to; i++) if (getRowStatus(i) === REQUESTED) setRowStatus(i, VIRGIN);
 					onDataLoadFailure.notify({from: from, to: to, textstatus: textstatus, error: error});
 				}
 			});
@@ -93,7 +89,7 @@
 		}
 
 		function loadData(resp, from, to) {
-			resp = (eval(resp));
+			resp = (eval('(' + resp + ')')); // there's something weird about what DWR is giving us back that requires wrapping in ()
 			var meta = resultMetadata(resp);
 			data.length = meta.totalrows;
 
