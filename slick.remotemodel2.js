@@ -2,7 +2,7 @@
 	// args: columns, url, [pageSize]
 	function makeRemoteModel(args){
 		// private
-		var data = {length:0};
+		var data = {length: args.numRows};
 
 		// events
 		var onDataLoading = new Slick.Event();
@@ -58,8 +58,7 @@
 			}
 
 // generalize
-			// adding 1 b/c data source in this case is indexed from 1
-			var url = args.url + (from+1) + '/' + (to+1) + '/';
+			var url = args.url + (from) + '/' + (to) + '/';
 
 			// mark rows as requested that way another request won't try to get same 
 			// rows if 2nd request is launched before 1st one returns
@@ -80,7 +79,7 @@
 
 		function resultMetadata(result){
 			return {
-				totalrows: 30000,// Number(result.reply.totalrows),
+				//totalrows: 30000,// Number(result.reply.totalrows),
 				numrows: Number(result.reply.table.rows.length)
 			};
 		}
@@ -91,7 +90,7 @@
 		function loadData(resp, from, to) {
 			resp = (eval('(' + resp + ')')); // there's something weird about what DWR is giving us back that requires wrapping in ()
 			var meta = resultMetadata(resp);
-			data.length = meta.totalrows;
+			//data.length = meta.totalrows;
 
 			// for every row in the current result set
 			for (var i = 0; i < meta.numrows; i++) {
