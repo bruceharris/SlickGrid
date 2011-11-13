@@ -306,26 +306,8 @@ if (typeof Slick === "undefined") {
             $canvas.parents().unbind("scroll.slickgrid");
         }
 
-        function updateColumnHeader(columnId, title, toolTip) {
-            var idx = getColumnIndex(columnId);
-            var $header = $headers.children().eq(idx);
-            if ($header) {
-                columns[idx].name = title;
-                columns[idx].toolTip = toolTip;
-                $header
-                    .attr("title", toolTip || title || "")
-                    .children().eq(0).html(title);
-            }
-        }
-
         function getHeaderRow() {
             return $headerRow[0];
-        }
-
-        function getHeaderRowColumn(columnId) {
-            var idx = getColumnIndex(columnId);
-            var $header = $headerRow.children().eq(idx);
-            return $header && $header[0];
         }
 
         function createColumnHeaders() {
@@ -459,7 +441,6 @@ if (typeof Slick === "undefined") {
             $container.unbind(".slickgrid");
             removeCssRules();
 
-            $canvas.unbind("draginit dragstart dragend drag");
             $container.empty().removeClass(uid);
         }
 
@@ -478,47 +459,8 @@ if (typeof Slick === "undefined") {
             return columnsById[id];
         }
 
-        function applyColumnHeaderWidths() {
-            var h;
-            for (var i = 0, headers = $headers.children(), ii = headers.length; i < ii; i++) {
-                h = $(headers[i]);
-                if (h.width() !== columns[i].width - headerColumnWidthDiff) {
-                    h.width(columns[i].width - headerColumnWidthDiff);
-                }
-            }
-        }
-
-        function applyColumnWidths() {
-            var rowWidth = getRowWidth();
-            var x = 0, w, rule;
-            for (var i = 0; i < columns.length; i++) {
-                w = columns[i].width;
-
-                rule = findCssRule("." + uid + " .l" + i);
-                rule.style.left = x + "px";
-
-                rule = findCssRule("." + uid + " .r" + i);
-                rule.style.right = (rowWidth - x - w) + "px";
-
-                x += columns[i].width;
-            }
-
-            rule = findCssRule("." + uid + " .slick-row");
-            rule.style.width = rowWidth + "px";
-        }
-
         function getColumns() {
             return columns;
-        }
-
-        function setColumns(columnDefinitions) {
-            columns = columnDefinitions;
-            invalidateAllRows();
-            createColumnHeaders();
-            removeCssRules();
-            createCssRules();
-            resizeAndRender();
-            handleScroll();
         }
 
         function getOptions() {
@@ -1043,18 +985,6 @@ if (typeof Slick === "undefined") {
         }
 
         //////////////////////////////////////////////////////////////////////////////////////////////
-        // IEditor implementation for the editor lock
-
-        function rowsToRanges(rows) {
-            var ranges = [];
-            var lastCell = columns.length - 1;
-            for (var i = 0; i < rows.length; i++) {
-                ranges.push(new Slick.Range(rows[i], 0, rows[i], lastCell));
-            }
-            return ranges;
-        }
-
-        //////////////////////////////////////////////////////////////////////////////////////////////
         // Debug
 
         this.debug = function() {
@@ -1091,9 +1021,7 @@ if (typeof Slick === "undefined") {
 
             // Methods
             "getColumns":                   getColumns,
-            "setColumns":                   setColumns,
             "getColumnIndex":               getColumnIndex,
-            "updateColumnHeader":           updateColumnHeader,
             "getOptions":                   getOptions,
             "setOptions":                   setOptions,
             "getData":                      getData,
@@ -1120,7 +1048,6 @@ if (typeof Slick === "undefined") {
             "showHeaderRowColumns":         showHeaderRowColumns,
             "hideHeaderRowColumns":         hideHeaderRowColumns,
             "getHeaderRow":                 getHeaderRow,
-            "getHeaderRowColumn":           getHeaderRowColumn,
 
             "destroy":                      destroy,
         });
