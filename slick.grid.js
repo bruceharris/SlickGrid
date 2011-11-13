@@ -1,4 +1,10 @@
 /**
+ * BH Notes:
+ *	data API: data.getItemMetadata is not documented
+ *	onViewportChanged event can presumably be passed the direction (and it does not currently)
+ */
+
+/**
  * @license
  * (c) 2009-2010 Michael Leibman
  * michael{dot}leibman{at}gmail{dot}com
@@ -468,8 +474,6 @@ if (typeof Slick === "undefined") {
         }
 
         function setOptions(args) {
-            makeActiveCellNormal();
-
             if (options.enableAddRow !== args.enableAddRow) {
                 invalidateRow(getDataLength());
             }
@@ -640,9 +644,6 @@ if (typeof Slick === "undefined") {
         }
 
         function invalidateAllRows() {
-            if (currentEditor) {
-                makeActiveCellNormal();
-            }
             for (var row in rowsCache) {
                 removeRowFromCache(row);
             }
@@ -664,10 +665,6 @@ if (typeof Slick === "undefined") {
             if (!rows || !rows.length) { return; }
             scrollDir = 0;
             for (i=0, rl=rows.length; i<rl; i++) {
-                if (currentEditor && activeRow === i) {
-                    makeActiveCellNormal();
-                }
-
                 if (rowsCache[rows[i]]) {
                     removeRowFromCache(rows[i]);
                 }
