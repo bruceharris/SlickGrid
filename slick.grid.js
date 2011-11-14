@@ -2,6 +2,11 @@
  * BH Notes:
  *	data API: data.getItemMetadata is not documented
  *	onViewportChanged event can presumably be passed the direction (and it does not currently)
+ *	there is also an onScroll event which gets passed the scrollTop and scrollLeft coordinates
+ *	  need to look at the difference between onViewportChanged and onScroll - when do each get called?
+ *	ph is page height in pixels
+ *	need to understand rowsCache
+ *	can we deal with arbitrary window resizing?
  */
 
 /**
@@ -122,11 +127,7 @@ if (typeof Slick === "undefined") {
         var headerColumnWidthDiff, headerColumnHeightDiff, cellWidthDiff, cellHeightDiff;  // padding+border
         var absoluteColumnMinWidth;
 
-        var activePosX;
         var activeRow, activeCell;
-        var activeCellNode = null;
-        var currentEditor = null;
-        var serializedEditorValue;
 
         var rowsCache = {};
         var renderedRows = 0;
@@ -140,11 +141,8 @@ if (typeof Slick === "undefined") {
         var cellCssClasses = {};
 
         var columnsById = {};
-        var sortColumnId;
-        var sortAsc = true;
 
         // async call handles
-        var h_editorLoader = null;
         var h_render = null;
         var h_postrender = null;
         var postProcessedRows = {};
@@ -519,21 +517,6 @@ if (typeof Slick === "undefined") {
         function showTopPanel() {
             options.showTopPanel = true;
             $topPanelScroller.slideDown("fast", resizeCanvas);
-        }
-
-        function hideTopPanel() {
-            options.showTopPanel = false;
-            $topPanelScroller.slideUp("fast", resizeCanvas);
-        }
-
-        function showHeaderRowColumns() {
-            options.showHeaderRow = true;
-            $headerRowScroller.slideDown("fast", resizeCanvas);
-        }
-
-        function hideHeaderRowColumns() {
-            options.showHeaderRow = false;
-            $headerRowScroller.slideUp("fast", resizeCanvas);
         }
 
         //////////////////////////////////////////////////////////////////////////////////////////////
@@ -1041,12 +1024,22 @@ if (typeof Slick === "undefined") {
             "getCellNodeBox":               getCellNodeBox,
             "getTopPanel":                  getTopPanel,
             "showTopPanel":                 showTopPanel,
-            "hideTopPanel":                 hideTopPanel,
-            "showHeaderRowColumns":         showHeaderRowColumns,
-            "hideHeaderRowColumns":         hideHeaderRowColumns,
             "getHeaderRow":                 getHeaderRow,
 
             "destroy":                      destroy,
+			getScroller: function(){
+				return {
+					maxSupportedCssHeight: maxSupportedCssHeight,
+					th: th,
+					h: h,
+   					ph: ph,
+					n: n,
+   					cj: cj,
+					page: page,
+   					offset: offset,
+					scrollDir: scrollDir
+				};
+			}
         });
 
         init();
