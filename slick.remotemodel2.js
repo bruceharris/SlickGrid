@@ -79,7 +79,6 @@
 
 		function resultMetadata(result){
 			return {
-				//totalrows: 30000,// Number(result.reply.totalrows),
 				numrows: Number(result.reply.table.rows.length)
 			};
 		}
