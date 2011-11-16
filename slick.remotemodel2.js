@@ -27,54 +27,53 @@
 			return false;
 		}
 
-		function ensureData(from, to) {
+		// not doing anything with left/right yet
+		function ensureData(top, bottom, left, right) {
 			var PAGESIZE = args.pageSize || 50;
 
 			// stay in bounds
-			if (from < 0) from = 0;
-			if (data.length && to >= data.length) to = data.length - 1;
+			if (top < 0) top = 0;
+			if (data.length && bottom >= data.length) bottom = data.length - 1;
 
-			if (!anyRowsNeeded(from, to)) return;
+			if (!anyRowsNeeded(top, bottom)) return;
 
 			// ensure we are getting a decent size chunk in each request
-			// so if (from - to) < optimal chunk size, reach further back and forward 
+			// so if (top - bottom) < optimal chunk size, reach further back and forward 
 			// as needed to expand chunk size
 
-			var fwd = (getRowStatus(from) !== VIRGIN && getRowStatus(to) === VIRGIN),
-				rew = (getRowStatus(to) !== VIRGIN && getRowStatus(from) === VIRGIN);
+			var fwd = (getRowStatus(top) !== VIRGIN && getRowStatus(bottom) === VIRGIN),
+				rew = (getRowStatus(bottom) !== VIRGIN && getRowStatus(top) === VIRGIN);
 
 			if (fwd) {
 				// find first row we need
-				while (getRowStatus(from) !== VIRGIN && from < to) from++;
+				while (getRowStatus(top) !== VIRGIN && top < bottom) top++;
 				// expand chunk size but not bigger than needed
-				while (to < from+PAGESIZE && getRowStatus(to) === VIRGIN) to++;
+				while (bottom < top+PAGESIZE && getRowStatus(bottom) === VIRGIN) bottom++;
 			} else if (rew) {
 				// find last row we need
-				while (getRowStatus(to) !== VIRGIN && from < to) to--;
-				while (from > to-PAGESIZE && getRowStatus(from) === VIRGIN) from--;
+				while (getRowStatus(bottom) !== VIRGIN && top < bottom) bottom--;
+				while (top > bottom-PAGESIZE && getRowStatus(top) === VIRGIN) top--;
 			} else { // missing chunk in middle or whole viewport
-				while (getRowStatus(from) !== VIRGIN && from < to) from++;
-				while (getRowStatus(to) !== VIRGIN && from < to) to--;
+				while (getRowStatus(top) !== VIRGIN && top < bottom) top++;
+				while (getRowStatus(bottom) !== VIRGIN && top < bottom) bottom--;
 			}
 
-// generalize
-			var url = args.url + (from) + '/' + (to) + '/';
+// generalize?
+			var url = args.url + (top) + '/' + (bottom) + '/';
 
 			// mark rows as requested that way another request won't try to get same 
 			// rows if 2nd request is launched before 1st one returns
-			for (var i=from; i<=to; i++) setRowStatus(i, REQUESTED);
-			onDataLoading.notify({from: from, to: to});
-// >> generalize
+			for (var i=top; i<=bottom; i++) setRowStatus(i, REQUESTED);
+			onDataLoading.notify({from: top, to: bottom});
 			$.ajax({
 				url: url,
 				dataType: 'text',
-				success: function(resp){ loadData(resp, from, to); },
+				success: function(resp){ loadData(resp, top, bottom); },
 				error: function(jqxhr, textstatus, error){
-					for (var i=from; i<=to; i++) if (getRowStatus(i) === REQUESTED) setRowStatus(i, VIRGIN);
-					onDataLoadFailure.notify({from: from, to: to, textstatus: textstatus, error: error});
+					for (var i=top; i<=bottom; i++) if (getRowStatus(i) === REQUESTED) setRowStatus(i, VIRGIN);
+					onDataLoadFailure.notify({from: top, to: bottom, textstatus: textstatus, error: error});
 				}
 			});
-// << to here
 		}
 
 		function resultMetadata(result){

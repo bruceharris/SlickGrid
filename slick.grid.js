@@ -1304,6 +1304,22 @@ if (typeof Slick === "undefined") {
             };
         }
 
+        function getVisibleColRange() {
+            var cumWidth = 0, l = columns.length, left;
+            for (var i=0; i<l; i++) {
+                cumWidth += (columns[i].width || columnDefaults.width);
+                if ($viewport[0].scrollLeft < cumWidth && left==null) left = i;
+                if ($viewport[0].scrollLeft+viewportW <= cumWidth) {
+                    right = i;
+                    break;
+                }
+            }
+            return {
+                left: left,
+                right: right
+            };
+        }
+
         function getRenderedRange(viewportTop) {
             var range = getVisibleRange(viewportTop);
             var buffer = Math.round(viewportH/options.rowHeight);
@@ -2553,6 +2569,7 @@ if (typeof Slick === "undefined") {
             "updateCell":                   updateCell,
             "updateRow":                    updateRow,
             "getViewport":                  getVisibleRange,
+            "getVisibleColRange":           getVisibleColRange,
             "getRenderedRange":             getRenderedRange,
             "resizeCanvas":                 resizeCanvas,
             "updateRowCount":               updateRowCount,
