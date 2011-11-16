@@ -1309,14 +1309,11 @@ if (typeof Slick === "undefined") {
             for (var i=0; i<l; i++) {
                 cumWidth += (columns[i].width || columnDefaults.width);
                 if ($viewport[0].scrollLeft < cumWidth && left==null) left = i;
-                if ($viewport[0].scrollLeft+viewportW <= cumWidth) {
-                    right = i;
-                    break;
-                }
+                if ($viewport[0].scrollLeft+viewportW <= cumWidth) break;
             }
             return {
                 left: left,
-                right: right
+                right: i
             };
         }
 
