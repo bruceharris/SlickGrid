@@ -13,16 +13,18 @@
 			REQUESTED = 1,
 			READY = 2;
 
+		function columnKey(colNum){
+			return args.columns[colNum].field;
+		} 
 		function getCellStatus(row, col){
-			var r = data[row],
-				colKey = args.columns[col].field;
-			return (r === undefined || r && r[colKey] === undefined ? VIRGIN :
-					(r[colKey] === null ?  REQUESTED : READY) );
+			var r = data[row];
+			return (r === undefined || r && r[columnKey(col)] === undefined ? VIRGIN :
+					(r[columnKey(col)] === null ? REQUESTED : READY) );
 		}
 		function setCellStatus(row, col, stat){
 			if (!data[row]) data[row] = {};
-			if (stat === VIRGIN) delete data[row][col];
-			else if (stat === REQUESTED) data[row][col] = null;
+			if (stat === VIRGIN) delete data[row][columnKey(col)];
+			else if (stat === REQUESTED) data[row][columnKey(col)] = null;
 		}
 		// fn gets passed (el,i) and returns boolean
 		function any(arr, fn){
@@ -146,16 +148,14 @@
 
 		// range is object with properties top, bottom, left, right
 		function loadData(resultData, range) {
-			//try {
+			try {
 				forEachCell(range, function(row, col){
-					var colKey = args.columns[col].field;
-					data[row][colKey] = resultData[row].cell[col];
+					data[row][columnKey(col)] = resultData[row - range.top].cell[col - range.left];
 				});
 				onDataLoaded.notify(range);
-			//} catch (e) {
-				//console.log('huhhhhh?');
-				//onDataLoadFailure.notify({range: range, error: e}); // TODO: normalize the parameters that this get passed
-			//}
+			} catch (e) {
+				onDataLoadFailure.notify({range: range, error: e}); // TODO: normalize the parameters that this get passed
+			}
 		}
 
 		return {
