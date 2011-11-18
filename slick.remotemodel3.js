@@ -1,5 +1,5 @@
 (function($) {
-	// args: columns, url, [pageSize]
+	// args: columns, url, numRows
 	function makeRemoteModel(args){
 		var data = {length: args.numRows};
 
@@ -13,17 +13,54 @@
 			REQUESTED = 1,
 			READY = 2;
 
-		function getRowStatus(rownum){
-			var r = data[rownum];
-			return r ? READY : (r === undefined ? VIRGIN : REQUESTED);
+		function getCellStatus(row, col){
+			var r = data[row],
+				colKey = args.columns[col].field;
+			return (r === undefined || r && r[colKey] === undefined ? VIRGIN :
+					(r[colKey] === null ?  REQUESTED : READY) );
 		}
-		function setRowStatus(rownum, stat){
-			if (stat === VIRGIN) delete data[rownum];
-			else if (stat === REQUESTED) data[rownum] = null;
+		function setCellStatus(row, col, stat){
+			if (!data[row]) data[row] = {};
+			if (stat === VIRGIN) delete data[row][col];
+			else if (stat === REQUESTED) data[row][col] = null;
 		}
-		function anyRowsNeeded(from, to){
-			for (var i=from; i<=to; i++) if (getRowStatus(i) === VIRGIN) return true;
+		// fn gets passed (el,i) and returns boolean
+		function any(arr, fn){
+			var l = arr.length;
+			for (var i=0; i<l; i++) if (fn(arr[i], i)) return true;
 			return false;
+		}
+		// fn gets passed (el,i) and returns boolean
+		function all(arr, fn){
+			var l = arr.length;
+			for (var i=0; i<l; i++) if (!fn(arr[i], i)) return false;
+			return true;
+		}
+		// range is object with properties top, bottom, left, right
+		// returns an array of cell objects with properties row, col
+		function getCornerCells(range){
+			return [
+				{row: range.top, col: range.left},
+				{row: range.bottom, col: range.left},
+				{row: range.top, col: range.right},
+				{row: range.bottom, col: range.right}
+			];
+		}
+		// range is object with properties top, bottom, left, right
+		function anyDataNeeded(range){
+			range = rationalizeRange(range);
+			function isCellNeeded(cell){
+				return getCellStatus(cell.row, cell.col) === VIRGIN;
+			}
+			return any(getCornerCells(range), isCellNeeded);
+		}
+		// range is object with properties top, bottom, left, right
+		function isDataReady(range){
+			range = rationalizeRange(range);
+			function isCellReady(cell){
+				return getCellStatus(cell.row, cell.col) === READY;
+			}
+			return all(getCornerCells(range), isCellReady);
 		}
 		// what is the range of the block that a given cell is in?
 		function getBlockRange(row, col){
@@ -32,93 +69,93 @@
 				left = Math.floor(col / BLOCKSIZE) * BLOCKSIZE;
 			return {
 				top: top,
-				bottom: top + BLOCKSIZE - 1,
+				bottom: Math.min(top + BLOCKSIZE - 1, data.length - 1),
 				left: left,
-				right: left + BLOCKSIZE - 1
+				right: Math.min(left + BLOCKSIZE - 1, args.columns.length - 1)
 			};
 		}
-
-		// not doing anything with left/right yet
-		function ensureData(top, bottom, left, right) {
-			var PAGESIZE = args.pageSize || 50;
-
-			// stay in bounds
-			top = Math.max(0, top);
-			if (data.length && bottom >= data.length) bottom = data.length - 1;
-			left = Math.max(0, left);
-			right = Math.max(columns.length - 1, right);
-
-			if (!anyRowsNeeded(top, bottom)) return;
-
-			// ensure we are getting a decent size chunk in each request
-			// so if (top - bottom) < optimal chunk size, reach further back and forward 
-			// as needed to expand chunk size
-
-			var fwd = (getRowStatus(top) !== VIRGIN && getRowStatus(bottom) === VIRGIN),
-				rew = (getRowStatus(bottom) !== VIRGIN && getRowStatus(top) === VIRGIN);
-
-			if (fwd) {
-				// find first row we need
-				while (getRowStatus(top) !== VIRGIN && top < bottom) top++;
-				// expand chunk size but not bigger than needed
-				while (bottom < top+PAGESIZE && getRowStatus(bottom) === VIRGIN) bottom++;
-			} else if (rew) {
-				// find last row we need
-				while (getRowStatus(bottom) !== VIRGIN && top < bottom) bottom--;
-				while (top > bottom-PAGESIZE && getRowStatus(top) === VIRGIN) top--;
-			} else { // missing chunk in middle or whole viewport
-				while (getRowStatus(top) !== VIRGIN && top < bottom) top++;
-				while (getRowStatus(bottom) !== VIRGIN && top < bottom) bottom--;
+		// returns a range that is in bounds
+		function rationalizeRange(range){
+			return {
+				top: Math.max(0, range.top),
+				bottom: Math.min(data.length - 1, range.bottom),
+				left: Math.max(0, range.left),
+				right: Math.min(args.columns.length - 1, range.right)
 			}
+		}
 
-// generalize?
-			var url = args.url + (top) + '/' + (bottom) + '/';
+		// range is object with properties top, bottom, left, right
+		function ensureData(range) {
+			range = rationalizeRange(range);
 
-			// mark rows as requested that way another request won't try to get same 
-			// rows if 2nd request is launched before 1st one returns
-			for (var i=top; i<=bottom; i++) setRowStatus(i, REQUESTED);
-			onDataLoading.notify({from: top, to: bottom});
+			// hmmmm... we don't really need this anymore
+			if (!anyDataNeeded(range)) return;
+
+			// for each corner of the range, check if that cell is needed,
+			// if needed, go get its block. we won't repeat as getData marks cells as 'requested'
+			$.each(getCornerCells(range), function(i, cell){
+				if (getCellStatus(cell.row, cell.col) === VIRGIN) {
+					getData(getBlockRange(cell.row, cell.col));
+				}
+			});
+		}
+		// range is object with properties top, bottom, left, right
+		function getData(range){
+			function markRequested(row, col){
+				setCellStatus(row, col, REQUESTED);
+			}
+			forEachCell(range, markRequested);
+
+			onDataLoading.notify(range);
 			$.ajax({
-				url: url,
+				url: args.url + (range.top) + '/' + (range.bottom) + '/', //TODO: need the right URL that handles cols
 				dataType: 'text',
-				success: function(resp){ loadData(resp, top, bottom); },
+				success: function(resp){
+					try {
+						resp = (eval('(' + resp + ')')); // there's something weird about what DWR is giving us back that requires wrapping in ()
+						if (resp.reply.rc != 0) throw {
+							range: range,
+							rc: resp.reply.rc,
+							msg: resp.reply.msg
+						}
+					} catch (e) {
+						throw e; // TODO: how do we want to handle this? need to ensure we mark the rows as virgin
+						return;
+					}
+					loadData(resp.reply.table.rows, range);
+				},
 				error: function(jqxhr, textstatus, error){
-					for (var i=top; i<=bottom; i++) if (getRowStatus(i) === REQUESTED) setRowStatus(i, VIRGIN);
-					onDataLoadFailure.notify({from: top, to: bottom, textstatus: textstatus, error: error});
+					function markVirgin(row, col){
+						if (getCellStatus(row, col) === REQUESTED) setCellStatus(row, col, VIRGIN);
+					}
+					forEachCell(range, markVirgin);
+					onDataLoadFailure.notify({range: range, textstatus: textstatus, error: error});
 				}
 			});
 		}
 
-		function resultMetadata(result){
-			return {
-				numrows: Number(result.reply.table.rows.length)
-			};
-		}
-		function extractCell(result, colNum, rowNum){
-			return result.reply.table.rows[rowNum].cell[colNum];
-		}
-
-		function loadData(resp, from, to) {
-			resp = (eval('(' + resp + ')')); // there's something weird about what DWR is giving us back that requires wrapping in ()
-			var meta = resultMetadata(resp);
-			//data.length = meta.totalrows;
-
-			// for every row in the current result set
-			for (var i = 0; i < meta.numrows; i++) {
-				var row = data[from + i] = {},
-					colLen = args.columns.length;
-				for (var colIdx = 0; colIdx < colLen; colIdx++) {
-					var colName = args.columns[colIdx].field;
-					row[colName] = extractCell(resp, colIdx, i);
+		// range is object with properties top, bottom, left, right
+		// fn is a function that gets called for each 'cell' in range and gets passed rowIndex, colIndex
+		function forEachCell(range, fn){
+			for (var r=range.top; r<=range.bottom; r++) {
+				for (var c=range.left; c<=range.right; c++) {
+					fn(r,c);
 				}
 			}
-
-			onDataLoaded.notify({from:from, to:to});
 		}
 
-		function isDataReady(from, to){
-			for (var i=from; i<=to; i++) if (!data[i]) break;
-			return i > to;
+		// range is object with properties top, bottom, left, right
+		function loadData(resultData, range) {
+			//try {
+				forEachCell(range, function(row, col){
+					var colKey = args.columns[col].field;
+					data[row][colKey] = resultData[row].cell[col];
+				});
+				onDataLoaded.notify(range);
+			//} catch (e) {
+				//console.log('huhhhhh?');
+				//onDataLoadFailure.notify({range: range, error: e}); // TODO: normalize the parameters that this get passed
+			//}
 		}
 
 		return {
@@ -132,13 +169,7 @@
 			// grid api methods
 			getItem: function (i) { return data[i]; },
 			getLength: function () { return data.length; },
-/*
-			???
-			getItemMetadata: function (row) {
-				// for each column, return a formatter for that row
-				return { columns: };
-			},
-*/
+
 			// events
 			onDataLoading: onDataLoading,
 			onDataLoaded: onDataLoaded,
