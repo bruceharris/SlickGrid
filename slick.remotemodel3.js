@@ -1,69 +1,97 @@
 (function($) {
 	// args: columns, url, numRows
 	function makeRemoteModel(args){
-		var data = {length: args.numRows};
-
 		// events
-		var onDataLoading = new Slick.Event();
-		var onDataLoaded = new Slick.Event();
-		var onDataLoadFailure = new Slick.Event();
-
-		// data status codes:
-		var VIRGIN = 0,
-			REQUESTED = 1,
-			READY = 2;
+		var onDataLoading = new Slick.Event(),
+			onDataLoaded = new Slick.Event(),
+			onDataLoadFailure = new Slick.Event();
 
 		function columnKey(colNum){
 			return args.columns[colNum].field;
 		} 
-		function getCellStatus(row, col){
-			var r = data[row];
-			return (r === undefined || r && r[columnKey(col)] === undefined ? VIRGIN :
-					(r[columnKey(col)] === null ? REQUESTED : READY) );
-		}
-		function setCellStatus(row, col, stat){
-			if (!data[row]) data[row] = {};
-			if (stat === VIRGIN) delete data[row][columnKey(col)];
-			else if (stat === REQUESTED) data[row][columnKey(col)] = null;
-		}
+		// for the function passed in, do all elements of this array return true?
 		// fn gets passed (el,i) and returns boolean
-		function any(arr, fn){
-			var l = arr.length;
-			for (var i=0; i<l; i++) if (fn(arr[i], i)) return true;
-			return false;
-		}
-		// fn gets passed (el,i) and returns boolean
-		function all(arr, fn){
+		function areAllTrue(arr, fn){
 			var l = arr.length;
 			for (var i=0; i<l; i++) if (!fn(arr[i], i)) return false;
 			return true;
 		}
-		// range is object with properties top, bottom, left, right
-		// returns an array of cell objects with properties row, col
-		function getCornerCells(range){
-			return [
-				{row: range.top, col: range.left},
-				{row: range.bottom, col: range.left},
-				{row: range.top, col: range.right},
-				{row: range.bottom, col: range.right}
-			];
-		}
-		// range is object with properties top, bottom, left, right
-		function anyDataNeeded(range){
-			range = rationalizeRange(range);
-			function isCellNeeded(cell){
-				return getCellStatus(cell.row, cell.col) === VIRGIN;
+		
+		// data status codes:
+		var VIRGIN = 0, REQUESTED = 1, READY = 2;
+
+		var dataCache = {
+			// properties
+			length: args.numRows,
+
+			// methods
+			getCellStatus: function (row, col) {
+				var r = this[row];
+				return (r === undefined || r && r[columnKey(col)] === undefined ? VIRGIN :
+						(r[columnKey(col)] === null ? REQUESTED : READY) );
+			},
+			setCellStatus: function (row, col, stat) {
+				if (!this[row]) this[row] = {};
+				if (stat === VIRGIN) delete this[row][columnKey(col)];
+				else if (stat === REQUESTED) this[row][columnKey(col)] = null;
 			}
-			return any(getCornerCells(range), isCellNeeded);
+		};
+		
+		// constructor
+		// bounds is an object with properties top, bottom, left, right
+		function Range(bounds){
+			var me = this;
+			$.extend(this, {
+				///////////////////
+				// properties
+				
+				top: Math.max(0, range.top),
+				bottom: Math.min(dataCache.length - 1, range.bottom),
+				left: Math.max(0, range.left),
+				right: Math.min(args.columns.length - 1, range.right),
+				
+				_dataCache: dataCache, // so other methods added to the prototype can access the dataCache
+				
+				///////////////////
+				// methods
+				
+				// returns an array of cell objects with properties row, col
+				getCornerCells: function () {
+					return [ {row: me.top, col: me.left}, {row: me.bottom, col: me.left}, {row: me.top, col: me.right}, {row: me.bottom, col: me.right} ];
+				},
+				isDataReady: function () {
+					function isCellReady(cell){
+						return getCellStatus(cell.row, cell.col) === READY;
+					}
+					// we are making an assumption that blocks are big enough that there can't be a hole in the middle of the corners
+					return areAllTrue(me.getCornerCells(), isCellReady);
+				},
+				// fn is a function that gets called for each 'cell' in range and gets passed rowIndex, colIndex
+				_forEachCell: function (fn) {
+					for (var r=me.top; r<=me.bottom; r++) for (var c=me.left; c<=me.right; c++) fn(r,c);
+				},
+				ensureData: function () {
+					// for each corner of the range, check if that cell is needed,
+					// if needed, go get its block. we won't repeat as getData marks cells as 'requested'
+					$.each(me.getCornerCells(), function(i, cell){
+						if (getCellStatus(cell.row, cell.col) === VIRGIN) {
+							me.getData(getBlockRange(cell.row, cell.col));
+						}
+					});
+				},
+				markRequested: function () {
+					this._forEachCell(function(row, col){
+						setCellStatus(row, col, REQUESTED);
+					});
+				},
+				markVirgin: function () {
+					this._forEachCell(function(row, col){
+						if (getCellStatus(row, col) === REQUESTED) setCellStatus(row, col, VIRGIN);
+					});
+				}
+			});
 		}
-		// range is object with properties top, bottom, left, right
-		function isDataReady(range){
-			range = rationalizeRange(range);
-			function isCellReady(cell){
-				return getCellStatus(cell.row, cell.col) === READY;
-			}
-			return all(getCornerCells(range), isCellReady);
-		}
+		
 		// what is the range of the block that a given cell is in?
 		function getBlockRange(row, col){
 			var BLOCKSIZE = 50, // 50 * 50 cells for each block
@@ -76,95 +104,55 @@
 				right: Math.min(left + BLOCKSIZE - 1, args.columns.length - 1)
 			};
 		}
-		// returns a range that is in bounds
-		function rationalizeRange(range){
-			return {
-				top: Math.max(0, range.top),
-				bottom: Math.min(data.length - 1, range.bottom),
-				left: Math.max(0, range.left),
-				right: Math.min(args.columns.length - 1, range.right)
-			}
-		}
-
+		
 		// range is object with properties top, bottom, left, right
-		function ensureData(range) {
-			range = rationalizeRange(range);
-
-			// hmmmm... we don't really need this anymore
-			if (!anyDataNeeded(range)) return;
-
-			// for each corner of the range, check if that cell is needed,
-			// if needed, go get its block. we won't repeat as getData marks cells as 'requested'
-			$.each(getCornerCells(range), function(i, cell){
-				if (getCellStatus(cell.row, cell.col) === VIRGIN) {
-					getData(getBlockRange(cell.row, cell.col));
-				}
-			});
-		}
-		// range is object with properties top, bottom, left, right
-		function getData(range){
-			function markRequested(row, col){
-				setCellStatus(row, col, REQUESTED);
-			}
-			forEachCell(range, markRequested);
-
+		Range.prototype.getData = function () {
+			// TODO: we're always going to need to do these 2 things, hmmmm...
+			this.markRequested();
 			onDataLoading.notify(range);
+			var me = this;
+			
 			$.ajax({
 				url: args.url + (range.top) + '/' + (range.bottom) + '/', //TODO: need the right URL that handles cols
 				dataType: 'text',
 				success: function(resp){
 					try {
 						resp = (eval('(' + resp + ')')); // there's something weird about what DWR is giving us back that requires wrapping in ()
-						if (resp.reply.rc != 0) throw {
-							range: range,
-							rc: resp.reply.rc,
-							msg: resp.reply.msg
-						}
+						if (resp.reply.rc != 0) throw { range: range, rc: resp.reply.rc, msg: resp.reply.msg };
 					} catch (e) {
 						throw e; // TODO: how do we want to handle this? need to ensure we mark the rows as virgin
 						return;
 					}
-					loadData(resp.reply.table.rows, range);
+					me.loadData(resp.reply.table.rows);
 				},
 				error: function(jqxhr, textstatus, error){
-					function markVirgin(row, col){
-						if (getCellStatus(row, col) === REQUESTED) setCellStatus(row, col, VIRGIN);
-					}
-					forEachCell(range, markVirgin);
+					me.markVirgin();
 					onDataLoadFailure.notify({range: range, textstatus: textstatus, error: error});
 				}
 			});
 		}
 
-		// range is object with properties top, bottom, left, right
-		// fn is a function that gets called for each 'cell' in range and gets passed rowIndex, colIndex
-		function forEachCell(range, fn){
-			for (var r=range.top; r<=range.bottom; r++) {
-				for (var c=range.left; c<=range.right; c++) {
-					fn(r,c);
-				}
-			}
-		}
-
-		// range is object with properties top, bottom, left, right
-		function loadData(resultData, range) {
+		Range.prototype.loadData = function (resultData) {
+			var me = this;
 			try {
-				forEachCell(range, function(row, col){
+				me._forEachCell(function(row, col){
 					data[row][columnKey(col)] = resultData[row - range.top].cell[col - range.left];
 				});
-				onDataLoaded.notify(range);
+				onDataLoaded.notify(me);
 			} catch (e) {
-				onDataLoadFailure.notify({range: range, error: e}); // TODO: normalize the parameters that this get passed
+				onDataLoadFailure.notify({range: me, error: e}); // TODO: normalize the parameters that this get passed
 			}
 		}
 
 		return {
 			// properties
 			_data: data, // exposed for debugging
+			Range: Range, // you'll need to add getData and loadData methods to the prototype of Range
 
 			// methods
 			ensureData: ensureData,
 			isDataReady: isDataReady,
+			getRange: function (bounds) { return new Range(bounds); },
 
 			// grid api methods
 			getItem: function (i) { return data[i]; },
@@ -177,6 +165,6 @@
 		};
 	}
 
-	// Slick.Data.RemoteModel
+	// Slick.Data.makeRemoteModel
 	$.extend(true, window, { Slick: { Data: { makeRemoteModel: makeRemoteModel }}});
 })(jQuery);
