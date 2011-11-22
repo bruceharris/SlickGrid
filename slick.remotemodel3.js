@@ -1,5 +1,5 @@
 (function($) {
-	// args: columns, url, numRows
+	// args: columns, numRows
 	function makeRemoteModel(args){
 		// events
 		var onDataLoading = new Slick.Event(),
@@ -55,19 +55,18 @@
 		function Range(bounds){
 			var me = this;
 			$.extend(this, {
-				///////////////////
-				// properties
+				// --- properties ---
 				
 				top: Math.max(0, bounds.top),
 				bottom: Math.min(dataCache.length - 1, bounds.bottom),
-				left: Math.max(0, bounds.left),
-				right: Math.min(args.columns.length - 1, bounds.right),
+				left: Math.max(0, bounds.left || 0), 
+				right: Math.min(args.columns.length - 1, bounds.right || 99999), // arbitrary large number > supportable columns
 				
-				dataCache: dataCache, // so other methods added to the prototype can access the dataCache
+				// --- methods ---
 				
-				///////////////////
-				// methods
-				
+				bounds: function () {
+					return {top: me.top, bottom: me.bottom, left: me.left, right: me.right};
+				},
 				// returns an array of cell objects with properties row, col
 				getCornerCells: function () {
 					return [ {row: me.top, col: me.left}, {row: me.bottom, col: me.left}, {row: me.top, col: me.right}, {row: me.bottom, col: me.right} ];
@@ -103,6 +102,33 @@
 					this._forEachCell(function(row, col){
 						if (dataCache.getCellStatus(row, col) === REQUESTED) dataCache.setCellStatus(row, col, VIRGIN);
 					});
+				},
+				// Range.getData method's handler needs to call Range.loadData
+				// cells is an object, its content is specified by the optional (string) format argument, default is '2dArray'
+				//   2dArray: array of arrays, where each sub-array represents a row (or the part of the row relevant for this range) 
+				//				with indices relative to range itself rather than the actual full set of columns
+				//   indices: array of objects (or arrays), where each object represents a row and contains columns keyed by column index
+				//				(column indices here map to the actual full set of columns)
+				//   fields: array of objects, where each object represents a row and contains columns keyed by field name
+				loadData: function (cells, format) {
+					console.log('called loadData', this, cells, format);
+					var me = this,
+						numRows = me.bottom - me.top + 1,
+						numCols = me.right - me.left + 1,
+						format = format || '2dArray',
+						colOffset = format === '2dArray' ? me.left : 0;
+					for (var r=0; r<numRows; r++) {
+						var row = {};
+						if (format in {'2dArray':0, 'indices':0}) {
+							for (var c=0; c<numCols; c++) row[c + colOffset] = cells[r][c];
+							dataCache.loadCells(me.top + i, {indices: row});
+						} else {
+							for (var key in cells) row[key] = cells[r][key];
+							dataCache.loadCells(me.top + i, {fields: row});
+						}
+					}
+					// TODO: catch and handle failure
+					onDataLoaded.notify(me.bounds());
 				}
 			});
 		}
@@ -123,7 +149,7 @@
 		return {
 			// properties
 			_dataCache: dataCache, // exposed for debugging
-			Range: Range, // you'll need to add getData and loadData methods to the prototype of Range
+			Range: Range, // you'll need to add a getData method to the prototype of Range
 
 			// range has methods ensureData and isDataReady
 			getRange: function (bounds) { return new Range(bounds); },
