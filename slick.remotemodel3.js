@@ -23,6 +23,7 @@
 		var dataCache = {
 			// properties
 			length: args.numRows,
+			'0': undefined, // defined here for informational purposes only, actual data rows will be added by row index
 
 			// methods
 			getCellStatus: function (row, col) {
@@ -34,6 +35,18 @@
 				if (!this[row]) this[row] = {};
 				if (stat === VIRGIN) delete this[row][columnKey(col)];
 				else if (stat === REQUESTED) this[row][columnKey(col)] = null;
+			},
+			// cells is an object that must have one of the following properties:
+			//   fields: object with data values in named fields
+			//   indices: object with data values by column index
+			loadCells: function (rowNum, cells) {
+				if ('fields' in cells) {
+					if (!this[rowNum]) this[rowNum] = cells.fields;
+					else for (var fld in cells.fields) this[rowNum][fld] = cells.fields[fld];
+				} else if ('indices' in cells) {
+					if (!this[rowNum]) this[rowNum] = {};
+					for (var i in cells.indices) this[rowNum][columnKey(i)] = cells.indices[i];
+				}
 			}
 		};
 		
@@ -45,12 +58,12 @@
 				///////////////////
 				// properties
 				
-				top: Math.max(0, range.top),
-				bottom: Math.min(dataCache.length - 1, range.bottom),
-				left: Math.max(0, range.left),
-				right: Math.min(args.columns.length - 1, range.right),
+				top: Math.max(0, bounds.top),
+				bottom: Math.min(dataCache.length - 1, bounds.bottom),
+				left: Math.max(0, bounds.left),
+				right: Math.min(args.columns.length - 1, bounds.right),
 				
-				_dataCache: dataCache, // so other methods added to the prototype can access the dataCache
+				dataCache: dataCache, // so other methods added to the prototype can access the dataCache
 				
 				///////////////////
 				// methods
@@ -61,7 +74,7 @@
 				},
 				isDataReady: function () {
 					function isCellReady(cell){
-						return getCellStatus(cell.row, cell.col) === READY;
+						return dataCache.getCellStatus(cell.row, cell.col) === READY;
 					}
 					// we are making an assumption that blocks are big enough that there can't be a hole in the middle of the corners
 					return areAllTrue(me.getCornerCells(), isCellReady);
@@ -74,19 +87,21 @@
 					// for each corner of the range, check if that cell is needed,
 					// if needed, go get its block. we won't repeat as getData marks cells as 'requested'
 					$.each(me.getCornerCells(), function(i, cell){
-						if (getCellStatus(cell.row, cell.col) === VIRGIN) {
+						if (dataCache.getCellStatus(cell.row, cell.col) === VIRGIN) {
+							me.markRequested();
+							onDataLoading.notify(me);
 							me.getData(getBlockRange(cell.row, cell.col));
 						}
 					});
 				},
 				markRequested: function () {
 					this._forEachCell(function(row, col){
-						setCellStatus(row, col, REQUESTED);
+						dataCache.setCellStatus(row, col, REQUESTED);
 					});
 				},
 				markVirgin: function () {
 					this._forEachCell(function(row, col){
-						if (getCellStatus(row, col) === REQUESTED) setCellStatus(row, col, VIRGIN);
+						if (dataCache.getCellStatus(row, col) === REQUESTED) dataCache.setCellStatus(row, col, VIRGIN);
 					});
 				}
 			});
@@ -99,65 +114,25 @@
 				left = Math.floor(col / BLOCKSIZE) * BLOCKSIZE;
 			return {
 				top: top,
-				bottom: Math.min(top + BLOCKSIZE - 1, data.length - 1),
+				bottom: Math.min(top + BLOCKSIZE - 1, dataCache.length - 1),
 				left: left,
 				right: Math.min(left + BLOCKSIZE - 1, args.columns.length - 1)
 			};
 		}
 		
-		// range is object with properties top, bottom, left, right
-		Range.prototype.getData = function () {
-			// TODO: we're always going to need to do these 2 things, hmmmm...
-			this.markRequested();
-			onDataLoading.notify(range);
-			var me = this;
-			
-			$.ajax({
-				url: args.url + (range.top) + '/' + (range.bottom) + '/', //TODO: need the right URL that handles cols
-				dataType: 'text',
-				success: function(resp){
-					try {
-						resp = (eval('(' + resp + ')')); // there's something weird about what DWR is giving us back that requires wrapping in ()
-						if (resp.reply.rc != 0) throw { range: range, rc: resp.reply.rc, msg: resp.reply.msg };
-					} catch (e) {
-						throw e; // TODO: how do we want to handle this? need to ensure we mark the rows as virgin
-						return;
-					}
-					me.loadData(resp.reply.table.rows);
-				},
-				error: function(jqxhr, textstatus, error){
-					me.markVirgin();
-					onDataLoadFailure.notify({range: range, textstatus: textstatus, error: error});
-				}
-			});
-		}
-
-		Range.prototype.loadData = function (resultData) {
-			var me = this;
-			try {
-				me._forEachCell(function(row, col){
-					data[row][columnKey(col)] = resultData[row - range.top].cell[col - range.left];
-				});
-				onDataLoaded.notify(me);
-			} catch (e) {
-				onDataLoadFailure.notify({range: me, error: e}); // TODO: normalize the parameters that this get passed
-			}
-		}
-
 		return {
 			// properties
-			_data: data, // exposed for debugging
+			_dataCache: dataCache, // exposed for debugging
 			Range: Range, // you'll need to add getData and loadData methods to the prototype of Range
 
-			// methods
-			ensureData: ensureData,
-			isDataReady: isDataReady,
+			// range has methods ensureData and isDataReady
 			getRange: function (bounds) { return new Range(bounds); },
 
 			// grid api methods
-			getItem: function (i) { return data[i]; },
-			getLength: function () { return data.length; },
+			getItem: function (i) { return dataCache[i]; },
+			getLength: function () { return dataCache.length; },
 
+			// TODO: need to figure out if we need events for this
 			// events
 			onDataLoading: onDataLoading,
 			onDataLoaded: onDataLoaded,
@@ -167,4 +142,4 @@
 
 	// Slick.Data.makeRemoteModel
 	$.extend(true, window, { Slick: { Data: { makeRemoteModel: makeRemoteModel }}});
-})(jQuery);
+})(jQuery); 
