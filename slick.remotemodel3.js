@@ -160,7 +160,6 @@
 			getItem: function (i) { return dataCache[i]; },
 			getLength: function () { return dataCache.length; },
 
-			// TODO: need to figure out if we need events for this
 			// events
 			onDataLoading: onDataLoading,
 			onDataLoaded: onDataLoaded,
