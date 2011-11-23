@@ -16,6 +16,18 @@
 			for (var i=0; i<l; i++) if (!fn(arr[i], i)) return false;
 			return true;
 		}
+		// what is the range of the block that a given cell is in?
+		function getBlockRange(row, col){
+			var BLOCKSIZE = 50, // 50 * 50 cells for each block
+				top = Math.floor(row / BLOCKSIZE) * BLOCKSIZE,
+				left = Math.floor(col / BLOCKSIZE) * BLOCKSIZE;
+			return {
+				top: top,
+				bottom: Math.min(top + BLOCKSIZE - 1, dataCache.length - 1),
+				left: left,
+				right: Math.min(left + BLOCKSIZE - 1, options.columns.length - 1)
+			};
+		}
 		
 		// data status codes:
 		var VIRGIN = 0, REQUESTED = 1, READY = 2;
@@ -114,7 +126,6 @@
 				//				(column indices here map to the actual full set of columns)
 				//   'fields': array of objects, where each object represents a row and contains columns keyed by field name
 				loadData: function (cells, format) {
-					console.log('called loadData', this, cells, format);
 					var me = this,
 						numRows = me.bottom - me.top + 1,
 						numCols = me.right - me.left + 1,
@@ -136,25 +147,13 @@
 			});
 		}
 		
-		// what is the range of the block that a given cell is in?
-		function getBlockRange(row, col){
-			var BLOCKSIZE = 50, // 50 * 50 cells for each block
-				top = Math.floor(row / BLOCKSIZE) * BLOCKSIZE,
-				left = Math.floor(col / BLOCKSIZE) * BLOCKSIZE;
-			return {
-				top: top,
-				bottom: Math.min(top + BLOCKSIZE - 1, dataCache.length - 1),
-				left: left,
-				right: Math.min(left + BLOCKSIZE - 1, options.columns.length - 1)
-			};
-		}
-		
 		return {
 			// properties
 			_dataCache: dataCache, // exposed for debugging
 			Range: Range, // you'll need to add a getData method to the prototype of Range
 
 			// range has methods ensureData and isDataReady
+			// bounds is an object with properties top, bottom, and optionally right, left
 			getRange: function (bounds) { return new Range(bounds); },
 
 			// grid api methods
