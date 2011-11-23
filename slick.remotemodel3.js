@@ -1,13 +1,13 @@
 (function($) {
-	// args: columns, numRows
-	function makeRemoteModel(args){
+	// options: columns, numRows
+	function makeRemoteModel(options){
 		// events
 		var onDataLoading = new Slick.Event(),
 			onDataLoaded = new Slick.Event(),
 			onDataLoadFailure = new Slick.Event();
 
 		function columnKey(colNum){
-			return args.columns[colNum].field;
+			return options.columns[colNum].field;
 		} 
 		// for the function passed in, do all elements of this array return true?
 		// fn gets passed (el,i) and returns boolean
@@ -22,8 +22,8 @@
 
 		var dataCache = {
 			// properties
-			length: args.numRows,
-			'0': undefined, // defined here for informational purposes only, actual data rows will be added by row index
+			length: options.numRows,
+			'0': undefined, // defined here for informational purposes only, actual data rows will be added likewise by row index
 
 			// methods
 			getCellStatus: function (row, col) {
@@ -54,13 +54,15 @@
 		// bounds is an object with properties top, bottom, left, right
 		function Range(bounds){
 			var me = this;
+			// TODO: this provides alternative way to specify getData. does this make more sense than adding it to the prototype? does it work?
+			if (options.getData) $.extend(this, {getData: options.getData});
 			$.extend(this, {
 				// --- properties ---
 				
 				top: Math.max(0, bounds.top),
 				bottom: Math.min(dataCache.length - 1, bounds.bottom),
 				left: Math.max(0, bounds.left || 0), 
-				right: Math.min(args.columns.length - 1, bounds.right || 99999), // arbitrary large number > supportable columns
+				right: Math.min(options.columns.length - 1, bounds.right || 99999), // arbitrary large number > supportable columns
 				
 				// --- methods ---
 				
@@ -85,6 +87,7 @@
 				ensureData: function () {
 					// for each corner of the range, check if that cell is needed,
 					// if needed, go get its block. we won't repeat as getData marks cells as 'requested'
+					// we are making an assumption that blocks are big enough that there can't be a hole in the middle of the corners
 					$.each(me.getCornerCells(), function(i, cell){
 						if (dataCache.getCellStatus(cell.row, cell.col) === VIRGIN) {
 							me.markRequested();
@@ -104,12 +107,12 @@
 					});
 				},
 				// Range.getData method's handler needs to call Range.loadData
-				// cells is an object, its content is specified by the optional (string) format argument, default is '2dArray'
-				//   2dArray: array of arrays, where each sub-array represents a row (or the part of the row relevant for this range) 
+				// cells is an object, its content is described by the optional (string) format argument, default is '2dArray'
+				//   '2dArray': array of arrays, where each sub-array represents a row (or the part of the row relevant for this range) 
 				//				with indices relative to range itself rather than the actual full set of columns
-				//   indices: array of objects (or arrays), where each object represents a row and contains columns keyed by column index
+				//   'indices': array of objects (or arrays), where each object represents a row and contains columns keyed by column index
 				//				(column indices here map to the actual full set of columns)
-				//   fields: array of objects, where each object represents a row and contains columns keyed by field name
+				//   'fields': array of objects, where each object represents a row and contains columns keyed by field name
 				loadData: function (cells, format) {
 					console.log('called loadData', this, cells, format);
 					var me = this,
@@ -121,7 +124,7 @@
 						var row = {};
 						if (format in {'2dArray':0, 'indices':0}) {
 							for (var c=0; c<numCols; c++) row[c + colOffset] = cells[r][c];
-							dataCache.loadCells(me.top + i, {indices: row});
+							dataCache.loadCells(me.top + r, {indices: row});
 						} else {
 							for (var key in cells) row[key] = cells[r][key];
 							dataCache.loadCells(me.top + i, {fields: row});
@@ -142,7 +145,7 @@
 				top: top,
 				bottom: Math.min(top + BLOCKSIZE - 1, dataCache.length - 1),
 				left: left,
-				right: Math.min(left + BLOCKSIZE - 1, args.columns.length - 1)
+				right: Math.min(left + BLOCKSIZE - 1, options.columns.length - 1)
 			};
 		}
 		
