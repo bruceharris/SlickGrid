@@ -82,6 +82,8 @@ if (typeof Slick === "undefined") {
             cellFlashingCssClass: "flashing",
             selectedCellCssClass: "selected",
             multiSelect: true,
+            enableLazyLoading: false,
+            renderTimeout: 50,
             enableTextSelectionOnCells: false
         };
 
@@ -118,6 +120,7 @@ if (typeof Slick === "undefined") {
         var $viewport;
         var $canvas;
         var $style;
+        var $loadingIndicator;
         var stylesheet;
         var viewportH, viewportW;
         var viewportHasHScroll;
@@ -247,6 +250,20 @@ if (typeof Slick === "undefined") {
 
             viewportW = parseFloat($.css($container[0], "width", true));
 
+            if (options.enableLazyLoading) {
+            	data.onDataLoaded.subscribe(function (e, range) {
+            		for (var i = range.top; i <= range.bottom; i++) self.invalidateRow(i);
+            		self.updateRowCount();
+            		self.render();
+            	});
+            	
+        		$loadingIndicator = $("<span class='loading-indicator'><label>Buffering...</label></span>").appendTo($container).hide();
+        		$loadingIndicator
+                    .css("position", "absolute")
+                    .css("top", $container.height()/2 - $loadingIndicator.height()/2)
+                    .css("left", $container.width()/2 - $loadingIndicator.width()/2);
+            }
+            
             createColumnHeaders();
             setupColumnSort();
             createCssRules();
@@ -1400,6 +1417,11 @@ if (typeof Slick === "undefined") {
             var visible = getVisibleRange();
             var rendered = getRenderedRange();
 
+            if (options.enableLazyLoading) {
+           	    $loadingIndicator[data.range(visible).isDataReady() ? 'hide' : 'show']();
+           	    if (!data.range(rendered).isDataReady()) data.range(rendered).ensureData();
+            }
+
             // remove rows no longer in the viewport
             cleanupRows(rendered);
 
@@ -1448,7 +1470,7 @@ if (typeof Slick === "undefined") {
                 if (Math.abs(lastRenderedScrollTop - scrollTop) < viewportH)
                     render();
                 else
-                    h_render = setTimeout(render, 50);
+                    h_render = setTimeout(render, options.renderTimeout);
 
                 trigger(self.onViewportChanged, {});
             }
