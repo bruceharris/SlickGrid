@@ -1,5 +1,5 @@
 (function($) {
-	// options: columns, numRows
+	// options: columns, numRows, getData
 	function makeLazyLoader(options){
 		// events
 		var onDataLoading = new Slick.Event(), //BH not sure if we need this one
@@ -65,94 +65,90 @@
 		// constructor
 		// bounds is an object with properties top, bottom, left, right
 		function Range(bounds){
-			var me = this;
-			// TODO: this provides alternative way to specify getData. does this make more sense than adding it to the prototype? does it work?
-			if (options.getData) $.extend(this, {getData: options.getData});
-			$.extend(this, {
-				// --- properties ---
-				
-				top: Math.max(0, bounds.top),
-				bottom: Math.min(dataCache.length - 1, bounds.bottom),
-				left: Math.max(0, bounds.left || 0), 
-				right: Math.min(options.columns.length - 1, bounds.right || 99999), // arbitrary large number > supportable columns
-				
-				// --- methods ---
-				
-				bounds: function () {
-					return {top: me.top, bottom: me.bottom, left: me.left, right: me.right};
-				},
-				// returns an array of cell objects with properties row, col
-				getCornerCells: function () {
-					return [ {row: me.top, col: me.left}, {row: me.bottom, col: me.left}, {row: me.top, col: me.right}, {row: me.bottom, col: me.right} ];
-				},
-				isDataReady: function () {
-					function isCellReady(cell){
-						return dataCache.getCellStatus(cell.row, cell.col) === READY;
-					}
-					// we are making an assumption that blocks are big enough that there can't be a hole in the middle of the corners
-					return areAllTrue(me.getCornerCells(), isCellReady);
-				},
-				// fn is a function that gets called for each 'cell' in range and gets passed rowIndex, colIndex
-				_forEachCell: function (fn) {
-					for (var r=me.top; r<=me.bottom; r++) for (var c=me.left; c<=me.right; c++) fn(r,c);
-				},
-				ensureData: function () {
-					// for each corner of the range, check if that cell is needed,
-					// if needed, go get its block. we won't repeat as getData marks cells as 'requested'
-					// we are making an assumption that blocks are big enough that there can't be a hole in the middle of the corners
-					$.each(me.getCornerCells(), function(i, cell){
-						if (dataCache.getCellStatus(cell.row, cell.col) === VIRGIN) {
-							me.markRequested();
-							onDataLoading.notify(me);
-							me.getData(getBlockRange(cell.row, cell.col));
-						}
-					});
-				},
-				markRequested: function () {
-					this._forEachCell(function(row, col){
-						dataCache.setCellStatus(row, col, REQUESTED);
-					});
-				},
-				markVirgin: function () {
-					this._forEachCell(function(row, col){
-						if (dataCache.getCellStatus(row, col) === REQUESTED) dataCache.setCellStatus(row, col, VIRGIN);
-					});
-				},
-				// Range.getData method's handler needs to call Range.loadData
-				// cells is an object, its content is described by the optional (string) format argument, default is '2dArray'
-				//   '2dArray': array of arrays, where each sub-array represents a row (or the part of the row relevant for this range) 
-				//				with indices relative to range itself rather than the actual full set of columns
-				//   'indices': array of objects (or arrays), where each object represents a row and contains columns keyed by column index
-				//				(column indices here map to the actual full set of columns)
-				//   'fields': array of objects, where each object represents a row and contains columns keyed by field name
-				loadData: function (cells, format) {
-					var me = this,
-						numRows = me.bottom - me.top + 1,
-						numCols = me.right - me.left + 1,
-						format = format || '2dArray',
-						colOffset = format === '2dArray' ? me.left : 0;
-					for (var r=0; r<numRows; r++) {
-						var row = {};
-						if (format in {'2dArray':0, 'indices':0}) {
-							for (var c=0; c<numCols; c++) row[c + colOffset] = cells[r][c];
-							dataCache.loadCells(me.top + r, {indices: row});
-						} else {
-							for (var key in cells) row[key] = cells[r][key];
-							dataCache.loadCells(me.top + i, {fields: row});
-						}
-					}
-					// TODO: catch and handle failure
-					onDataLoaded.notify(me.bounds());
-				}
-			});
+			this.top = Math.max(0, bounds.top);
+			this.bottom = Math.min(dataCache.length - 1, bounds.bottom);
+			this.left = Math.max(0, bounds.left || 0);
+			this.right = Math.min(options.columns.length - 1, bounds.right || 99999); // arbitrary large number that is > supportable columns
 		}
+
+		$.extend(Range.prototype, {
+			// returns an array of cell objects with properties row, col
+			_getCornerCells: function () {
+				return [ {row: this.top, col: this.left}, {row: this.bottom, col: this.left}, {row: this.top, col: this.right}, {row: this.bottom, col: this.right} ];
+			},
+			// fn is a function that gets called for each 'cell' in range and gets passed rowIndex, colIndex
+			_forEachCell: function (fn) {
+				for (var r=this.top; r<=this.bottom; r++) for (var c=this.left; c<=this.right; c++) fn(r,c);
+			},
+			getData: options.getData,
+			isDataReady: function () {
+				function isCellReady(cell){
+					return dataCache.getCellStatus(cell.row, cell.col) === READY;
+				}
+				// we are making an assumption that blocks are big enough that there can't be a hole in the middle of the corners
+				return areAllTrue(this._getCornerCells(), isCellReady);
+			},
+			bounds: function () {
+				return {top: this.top, bottom: this.bottom, left: this.left, right: this.right};
+			},
+			// if data is already loaded, returns true, else goes gets the data and returns false
+			ensureDataLoaded: function () {
+				if (this.isDataReady()) return true;
+				var me = this;
+				// for each corner of the range, check if that cell is needed,
+				// if needed, go get its block. we won't repeat as getData marks cells as 'requested'
+				// we are making an assumption that blocks are big enough that there can't be a hole in the middle of the corners
+				$.each(me._getCornerCells(), function(i, cell){
+					if (dataCache.getCellStatus(cell.row, cell.col) === VIRGIN) {
+						me.markRequested();
+						onDataLoading.notify(me.bounds());
+						me.getData(getBlockRange(cell.row, cell.col));
+					}
+				});
+				return false;
+			},
+			markRequested: function () {
+				this._forEachCell(function(row, col){
+					dataCache.setCellStatus(row, col, REQUESTED);
+				});
+			},
+			markVirgin: function () {
+				this._forEachCell(function(row, col){
+					if (dataCache.getCellStatus(row, col) === REQUESTED) dataCache.setCellStatus(row, col, VIRGIN);
+				});
+			},
+			// Range.getData method's handler needs to call Range.loadData
+			// cells is an object, its content is described by the optional (string) format argument, default is 'fields'
+			//   'fields': array of objects, where each object represents a row and contains columns keyed by field name
+			//   '2dArray': array of arrays, where each sub-array represents a row (or the part of the row relevant for this range) 
+			//				with indices relative to range itself rather than the actual full set of columns
+			//   'indices': array of objects (or arrays), where each object represents a row and contains columns keyed by column index
+			//				(column indices here map to the actual full set of columns)
+			loadData: function (cells, format) {
+				var me = this,
+					numRows = me.bottom - me.top + 1,
+					numCols = me.right - me.left + 1,
+					format = format || 'fields',
+					colOffset = format === '2dArray' ? me.left : 0;
+				for (var r=0; r<numRows; r++) {
+					var row = {};
+					if (format in {'2dArray':0, 'indices':0}) {
+						for (var c=0; c<numCols; c++) row[c + colOffset] = cells[r][c];
+						dataCache.loadCells(me.top + r, {indices: row});
+					} else {
+						for (var key in cells) row[key] = cells[r][key];
+						dataCache.loadCells(me.top + r, {fields: row});
+					}
+				}
+				// TODO: catch and handle failure
+				onDataLoaded.notify(me.bounds());
+			}
+		});
 		
 		return {
 			// properties
 			_dataCache: dataCache, // exposed for debugging
-			Range: Range, // you'll need to add a getData method to the prototype of Range
 
-			// range has methods ensureData and isDataReady
 			// bounds is an object with properties top, bottom, and optionally right, left
 			range: function (bounds) { return new Range(bounds); },
 

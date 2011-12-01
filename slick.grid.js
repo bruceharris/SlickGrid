@@ -256,12 +256,7 @@ if (typeof Slick === "undefined") {
             		self.updateRowCount();
             		self.render();
             	});
-            	
-        		$loadingIndicator = $("<span class='loading-indicator'><label>Buffering...</label></span>").appendTo($container).hide();
-        		$loadingIndicator
-                    .css("position", "absolute")
-                    .css("top", $container.height()/2 - $loadingIndicator.height()/2)
-                    .css("left", $container.width()/2 - $loadingIndicator.width()/2);
+        		$loadingIndicator = $("<div class='slick-loading-indicator'>Buffering...</div>").appendTo($container).hide();
             }
             
             createColumnHeaders();
@@ -1418,8 +1413,8 @@ if (typeof Slick === "undefined") {
             var rendered = getRenderedRange();
 
             if (options.enableLazyLoading) {
+           	    data.range(rendered).ensureDataLoaded();
            	    $loadingIndicator[data.range(visible).isDataReady() ? 'hide' : 'show']();
-           	    if (!data.range(rendered).isDataReady()) data.range(rendered).ensureData();
             }
 
             // remove rows no longer in the viewport
