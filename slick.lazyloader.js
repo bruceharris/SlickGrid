@@ -2,8 +2,7 @@
 	// options: columns, numRows, getData
 	function makeLazyLoader(options){
 		// events
-		var onDataLoading = new Slick.Event(), //BH not sure if we need this one
-			onDataLoaded = new Slick.Event(),
+		var onDataLoaded = new Slick.Event(),
 			onDataLoadFailure = new Slick.Event();
 
 		function columnKey(colNum){
@@ -21,12 +20,12 @@
 			var BLOCKSIZE = 50, // 50 * 50 cells for each block
 				top = Math.floor(row / BLOCKSIZE) * BLOCKSIZE,
 				left = Math.floor(col / BLOCKSIZE) * BLOCKSIZE;
-			return {
+			return new Range({
 				top: top,
 				bottom: Math.min(top + BLOCKSIZE - 1, dataCache.length - 1),
 				left: left,
 				right: Math.min(left + BLOCKSIZE - 1, options.columns.length - 1)
-			};
+			});
 		}
 		
 		// data status codes:
@@ -88,21 +87,19 @@
 				// we are making an assumption that blocks are big enough that there can't be a hole in the middle of the corners
 				return areAllTrue(this._getCornerCells(), isCellReady);
 			},
-			bounds: function () {
-				return {top: this.top, bottom: this.bottom, left: this.left, right: this.right};
-			},
 			// if data is already loaded, returns true, else goes gets the data and returns false
 			ensureDataLoaded: function () {
 				if (this.isDataReady()) return true;
 				var me = this;
 				// for each corner of the range, check if that cell is needed,
-				// if needed, go get its block. we won't repeat as getData marks cells as 'requested'
+				// if needed, go get its block. we won't repeat as we marks cells as 'requested'
 				// we are making an assumption that blocks are big enough that there can't be a hole in the middle of the corners
 				$.each(me._getCornerCells(), function(i, cell){
 					if (dataCache.getCellStatus(cell.row, cell.col) === VIRGIN) {
-						me.markRequested();
-						onDataLoading.notify(me.bounds());
-						me.getData(getBlockRange(cell.row, cell.col));
+						var rangeToFill = getBlockRange(cell.row, cell.col);
+						//TODO: something is wrong here - looks like we're actually asking for the data 2x?
+						rangeToFill.markRequested();
+						rangeToFill.getData();
 					}
 				});
 				return false;
@@ -141,7 +138,7 @@
 					}
 				}
 				// TODO: catch and handle failure
-				onDataLoaded.notify(me.bounds());
+				onDataLoaded.notify(me);
 			}
 		});
 		
@@ -157,7 +154,6 @@
 			getLength: function () { return dataCache.length; },
 
 			// events
-			onDataLoading: onDataLoading,
 			onDataLoaded: onDataLoaded,
 			onDataLoadFailure: onDataLoadFailure
 		};
