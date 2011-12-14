@@ -82,7 +82,9 @@ if (typeof Slick === "undefined") {
             selectedCellCssClass: "selected",
             multiSelect: true,
             enableTextSelectionOnCells: false,
-            dataItemColumnValueExtractor: null
+            dataItemColumnValueExtractor: null,
+            enableLazyLoading: false,
+            renderDelay: 50
         };
 
         var columnDefaults = {
@@ -118,6 +120,7 @@ if (typeof Slick === "undefined") {
         var $viewport;
         var $canvas;
         var $style;
+        var $loadingIndicator;
         var stylesheet;
         var viewportH, viewportW;
         var viewportHasHScroll;
@@ -246,6 +249,15 @@ if (typeof Slick === "undefined") {
             }
 
             viewportW = parseFloat($.css($container[0], "width", true));
+
+            if (options.enableLazyLoading) {
+                data.onDataLoaded.subscribe(function(e, range) {
+                    for (var i=range.top; i<=range.bottom; i++) self.invalidateRow(i);
+                    self.updateRowCount();
+                    self.render();
+                });
+                $loadingIndicator = $("<div class='slick-loading-indicator'>Buffering...</div>").appendTo($container).hide();
+            }
 
             createColumnHeaders();
             setupColumnSort();
@@ -1394,6 +1406,11 @@ if (typeof Slick === "undefined") {
             var visible = getVisibleRange();
             var rendered = getRenderedRange();
 
+            if (options.enableLazyLoading) {
+                data.range(rendered).ensureDataLoaded();
+                $loadingIndicator[data.range(visible).isDataReady() ? 'hide' : 'show']();
+            }
+
             // remove rows no longer in the viewport
             cleanupRows(rendered);
 
@@ -1442,7 +1459,7 @@ if (typeof Slick === "undefined") {
                 if (Math.abs(lastRenderedScrollTop - scrollTop) < viewportH)
                     render();
                 else
-                    h_render = setTimeout(render, 50);
+                    h_render = setTimeout(render, options.renderDelay);
 
                 trigger(self.onViewportChanged, {});
             }
