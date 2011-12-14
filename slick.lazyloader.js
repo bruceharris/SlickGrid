@@ -4,9 +4,6 @@
 		// events
 		var onDataLoaded = new Slick.Event();
 
-		function columnKey(colNum){
-			return args.columns[colNum].field;
-		} 
 		// what is the range of the block that a given row is in?
 		function getBlockRange(row){
 			var blockSize = args.blockSize || 50, // 50 rows
@@ -23,7 +20,7 @@
 		var dataCache = {
 			// properties
 			length: args.numRows,
-			'0': undefined, // defined here for informational purposes only, actual data rows will be added likewise by row index
+			'0': undefined, // defined here for informational purposes only, actual data rows will be added by row index
 
 			// methods
 			getRowStatus: function (row) {
@@ -32,9 +29,6 @@
 			setRowStatus: function (row, stat) {
 				if (stat === VIRGIN) delete this[row];
 				else if (stat === REQUESTED) this[row] = null;
-			},
-			loadRow: function (rowNum, cells) {
-				this[rowNum] = cells;
 			}
 		};
 		
@@ -46,7 +40,6 @@
 		}
 
 		$.extend(Range.prototype, {
-			// fn is a function that gets called for each 'cell' in range and gets passed rowIndex, colIndex
 			fetchData: args.fetchData,
 			isDataReady: function () {
 				for (var r=this.top; r<=this.bottom; r++) if (dataCache.getRowStatus(r) !== READY) return false;
@@ -67,25 +60,24 @@
 			// Range.fetchData method's handler needs to call Range.loadData
 			// cells is an object, its content is described by the optional (string) format argument, default is 'fields'
 			//   'fields': array of objects, where each object represents a row and contains columns keyed by field name
-			//   '2dArray': array of arrays, where each sub-array represents a row (or the part of the row relevant for this range) 
-			//				with indices relative to range itself rather than the actual full set of columns
 			//   'indices': array of objects (or arrays), where each object represents a row and contains columns keyed by column index
 			//				(column indices here map to the actual full set of columns)
 			loadData: function (cells, format) {
 				var me = this,
 					numRows = me.bottom - me.top + 1,
-					numCols = me.right - me.left + 1,
-					format = format || 'fields',
-					colOffset = format === '2dArray' ? me.left : 0;
+					format = format || 'fields';
+				function columnKey(colNum){
+					return args.columns[colNum].field;
+				} 
 				for (var r=0; r<numRows; r++) {
 					var row = {};
-					if (format in {'2dArray':0, 'indices':0}) {
-						for (var c=0; c<numCols; c++) row[c + colOffset] = cells[r][c];
-						dataCache.loadRow(me.top + r, {indices: row});
+					if (format === 'indices') {
+						if (!args.columns) throw Error("Range.loadData() can only be called with 'indices' if columns option is provided to makeLazyLoader()");
+						for (var c=0; c<args.columns.length; c++) row[columnKey(c)] = cells[r][c];
 					} else {
-						for (var key in cells) row[key] = cells[r][key];
-						dataCache.loadRow(me.top + r, {fields: row});
+						row = cells[r];
 					}
+					dataCache[me.top + r] = row;
 				}
 				// TODO: catch and handle failure
 				onDataLoaded.notify(me);
@@ -97,11 +89,17 @@
 			_dataCache: dataCache, // exposed for debugging
 
 			// bounds is an object with properties top, bottom, and optionally right, left
-			range: function (bounds) { return new Range(bounds); },
+			range: function (bounds) {
+				return new Range(bounds);
+			},
 
 			// grid api methods
-			getItem: function (i) { return dataCache[i]; },
-			getLength: function () { return dataCache.length; },
+			getItem: function (i) {
+				return dataCache[i];
+			},
+			getLength: function () {
+				return dataCache.length;
+			},
 
 			// events
 			onDataLoaded: onDataLoaded,
