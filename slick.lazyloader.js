@@ -1,18 +1,24 @@
 (function ($) {
     /**
-     * 
-     * @param {Function} fetchData
-     * @param {Array} [columns] optional array of columns
-     * @param {Number} [numRows] optional 
-     * @param {blockSize} [columns] optional array of columns
+     * @param {Function}       fetchData     Fetches data from remote source and loads it into local cache. This is a method
+     *                                       that will be added to the protoype of the Range constructor defined below. An 
+     *                                       instance of Range represents a range of rows, has properties .top and .bottom
+     *                                       which are to be used in the fetchData method to tell the data source what rows
+     *                                       to return. After data is retrieved (presumably in the success handler of the AJAX
+     *                                       call) the range's loadData method must be called. See loadData below.
+     * @param {Array,String}   [fields]      Optional array of field names, only necessary if mapping data cells to fields by column index
+     * @param {Number}         [numRows]     Optional total rows in data source - alternatively can be set by setLength method
+     *                                       if not known at time of instantiation
+     * @param {Number}         [blockSize]   Optional # of rows to retrieve in each fetch (default is 100)
      */
     function LazyLoader(args){
         // events
         var onDataLoaded = new Slick.Event();
 
+        // data is fetched one block at a time; data is segmented into blocks of a fixed row size.
         // what is the range of the block that a given row is in?
         function getBlockRange(row){
-            var blockSize = args.blockSize || 50, // 50 rows
+            var blockSize = args.blockSize || 100,
                 top = Math.floor(row / blockSize) * blockSize;
             return new Range({
                 top: top,
@@ -73,13 +79,13 @@
                     numRows = me.bottom - me.top + 1,
                     format = format || 'fields';
                 function columnKey(colNum){
-                    return args.columns[colNum].field;
+                    return args.fields[colNum].field;
                 } 
                 for (var r=0; r<numRows; r++) {
                     var row = {};
                     if (format === 'indices') {
-                        if (!args.columns) throw Error("Range.loadData() can only be called with 'indices' if columns option is provided to LazyLoader()");
-                        for (var c=0; c<args.columns.length; c++) row[columnKey(c)] = cells[r][c];
+                        if (!args.fields) throw Error("Range.loadData() can only be called with 'indices' if fields option is provided to LazyLoader()");
+                        for (var c=0; c<args.fields.length; c++) row[columnKey(c)] = cells[r][c];
                     } else {
                         row = cells[r];
                     }
@@ -94,22 +100,22 @@
             // properties
             _dataCache: dataCache, // exposed for debugging
 
-            // bounds is an object with properties top, bottom, and optionally right, left
+            // bounds is an object with properties top and bottom
             range: function (bounds) {
                 return new Range(bounds);
             },
-
-            // grid api methods
             getItem: function (i) {
                 return dataCache[i];
             },
             getLength: function () {
                 return dataCache.length;
             },
+            setLength: function (l) {
+                dataCache.length = l;
+            },
 
             // events
-            onDataLoaded: onDataLoaded,
-            onDataLoadFailure: onDataLoadFailure
+            onDataLoaded: onDataLoaded
         };
     }
 
