@@ -16,7 +16,7 @@
         var onDataLoaded = new Slick.Event();
 
         // data is fetched one block at a time; data is segmented into blocks of a fixed row size.
-        // what is the range of the block that a given row is in?
+        // returns the range of the block that a given row is in
         function getBlockRange(row){
             var blockSize = args.blockSize || 100,
                 top = Math.floor(row / blockSize) * blockSize;
@@ -31,12 +31,12 @@
 
         var dataCache = {
             // properties
-            length: args.numRows,
+            length: args.numRows || 1, // default to 1 so things don't break before we get a chance to call setLength
             '0': undefined, // defined here for informational purposes only, actual data rows will be added by row index
 
             // methods
             getRowStatus: function (row) {
-                return (row === undefined ? VIRGIN : (row === null ? REQUESTED : READY) );
+                return (this[row] === undefined ? VIRGIN : (this[row] === null ? REQUESTED : READY) );
             },
             setRowStatus: function (row, stat) {
                 if (stat === VIRGIN) delete this[row];
@@ -91,7 +91,6 @@
                     }
                     dataCache[me.top + r] = row;
                 }
-                // TODO: catch and handle failure
                 onDataLoaded.notify(me);
             }
         });
