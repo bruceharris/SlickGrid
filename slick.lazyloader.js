@@ -16,34 +16,35 @@
         // events
         var onDataLoaded = new Slick.Event();
 
-        // data is fetched one block at a time; data is segmented into blocks of a fixed row size.
-        // returns the range of the block that a given row is in
-        function getBlockRange(row){
-            var blockSize = args.blockSize || 100,
-                top = Math.floor(row / blockSize) * blockSize;
-            return new Range({
-                top: top,
-                bottom: Math.min(top + blockSize - 1, dataCache.length - 1)
-            });
-        }
-        
         // data status codes:
         var VIRGIN = 0, REQUESTED = 1, READY = 2;
 
+        // data is fetched one block at a time; data is segmented into blocks of a fixed row size.
         var dataCache = {
             // properties
             length: args.numRows || 1, // default to 1 so things don't break before we get a chance to call setLength
-            '0': undefined, // defined here for informational purposes only, actual data rows will be added by row index
+            blockSize: args.blockSize || 100,
+            blocks: [], // this will be an array of arrays
 
             // methods
-            getRowStatus: function (row) {
-                return (this[row] === undefined ? VIRGIN : (this[row] === null ? REQUESTED : READY) );
+            getBlockStatus: function (blockIndex) {
+                var b = this.blocks[blockIndex];
+                return (b === undefined ? VIRGIN : (b === null ? REQUESTED : READY) );
             },
-            setRowStatus: function (row, stat) {
-                if (stat === VIRGIN) delete this[row];
-                else if (stat === REQUESTED) this[row] = null;
+            setBlockStatus: function (blockIndex, stat) {
+                if (stat === VIRGIN) delete this.blocks[blockIndex];
+                else if (stat === REQUESTED) this.blocks[blockIndex] = null;
             }
         };
+
+        function getBlockIndex(row){
+            return Math.floor(row / dataCache.blockSize);
+        }
+        function getBlockRange(i){
+            var s = dataCache.blockSize;
+            return new Range({ top: i * s, bottom: i * s + s - 1 });
+        }
+        
         
         // constructor
         // bounds is an object with properties top, bottom
@@ -54,20 +55,34 @@
 
         $.extend(Range.prototype, {
             fetchData: args.fetchData,
+            // apply a function for each block in this range
+            // fn takes a single argument: the index of the block to operate on
+            _forEachBlock: function (fn) {
+                for (var i=this.bottom; i<=this.top; i+=dataCache.blockSize) fn(getBlockIndex(i));
+            },
             isDataReady: function () {
-                for (var r=this.top; r<=this.bottom; r++) if (dataCache.getRowStatus(r) !== READY) return false;
-                return true;
+                var isReady = true;
+                this._forEachBlock(function (i) {
+                    if (dataCache.getBlockStatus(i) !== READY) isReady = false;
+                });
+                return isReady;
             },
             ensureDataLoaded: function () {
-                // check if row is needed, if so, go get its block. we won't repeat as we marks cells as 'requested'
-                for (var r=this.top; r<=this.bottom; r++) if (dataCache.getRowStatus(r) === VIRGIN) getBlockRange(r).markRequested().fetchData();
+                // check if block is needed, if so, go get it. we won't repeat as we marks blocks as 'requested'
+                this._forEachBlock(function (i) {
+                    if (dataCache.getBlockStatus(i) === VIRGIN) getBlockRange(i).markRequested().fetchData();
+                });
             },
             markRequested: function () {
-                for (var r=this.top; r<=this.bottom; r++) dataCache.setRowStatus(r, REQUESTED);
+                this._forEachBlock(function (i) {
+                    dataCache.setBlockStatus(i, REQUESTED);
+                });
                 return this;
             },
             markVirgin: function () {
-                for (var r=this.top; r<=this.bottom; r++) dataCache.setRowStatus(r, VIRGIN);
+                this._forEachBlock(function (i) {
+                    dataCache.setBlockStatus(i, VIRGIN);
+                });
                 return this;
             },
             // Range.fetchData method's handler needs to call Range.loadData
@@ -77,6 +92,7 @@
             //                (column indices here map to the actual full set of columns)
             loadData: function (cells, format) {
                 var me = this,
+                    block = [],
                     numRows = me.bottom - me.top + 1,
                     format = format || 'fields';
                 function columnKey(colNum){
@@ -90,8 +106,9 @@
                     } else {
                         row = cells[r];
                     }
-                    dataCache[me.top + r] = row;
+                    block.push(row);
                 }
+                dataCache.blocks[getBlockIndex(me.top)] = block;
                 onDataLoaded.notify(me);
             }
         });
@@ -105,7 +122,8 @@
                 return new Range(bounds);
             },
             getItem: function (i) {
-                return dataCache[i];
+                var block = dataCache.blocks[getBlockIndex(i)];
+                return block && block[i % dataCache.blockSize];
             },
             getLength: function () {
                 return dataCache.length;
