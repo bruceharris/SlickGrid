@@ -58,7 +58,7 @@
             // apply a function for each block in this range
             // fn takes a single argument: the index of the block to operate on
             _forEachBlock: function (fn) {
-                for (var i=this.bottom; i<=this.top; i+=dataCache.blockSize) fn(getBlockIndex(i));
+                for (var i=this.top; i<=this.bottom; i+=dataCache.blockSize) fn(getBlockIndex(i));
             },
             isDataReady: function () {
                 var isReady = true;
