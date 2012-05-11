@@ -10,7 +10,7 @@
      *                                          call) the range's loadData method must be called. See loadData below.
 BH     * @param {Number}       [args.timeout]     Optional # of seconds to wait before giving up on an XHR to return
 BH     * @param {Number}       [args.retries]     Optional # of times to retry a failed XHR
-BH     * @param {Number}       [args.queueSize]   Optional max # of outstanding XHRs (fetchData requests)
+BH     * @param {Number}       [args.poolSize]   Optional max # of outstanding XHRs (fetchData requests)
      * @param {Array,String} [args.fields]      Optional array of field names, only necessary if mapping data cells to fields by column index
      * @param {Number}       [args.numRows]     Optional total rows in data source - alternatively can be set by setLength method
      *                                          if not known at time of instantiation
@@ -57,32 +57,53 @@ BH     * @param {Number}       [args.queueSize]   Optional max # of outstanding 
             return new Range({ top: i * s, bottom: i * s + s - 1 });
         }
 
-        // queue of blocks to fetch
-        var queue = {
-            _q: [], // array of block indices to be fetched
-            _queueSize: args.queueSize || 4,
-            _busy: false,
+        // pool of outstanding blocks to fetch
+        var pool = {
+            _p: [], // array of block indices to be fetched
+            _max: args.poolSize || 4,
+            _doNext: function () {
+                if (!this._p.length) return;
+                // fetch
+                // set timeout to check if done
+                // if not done, retry
+                function fetch(){
+                }
+                var t = setTimeout(fetch, timeout);
 
-            doNext: function () {
-                if (!this._q.length) return;
-
-                this._busy = true;
-                getBlockRange(this._q[0]).fetchData();
+                getBlockRange(this._p[0]).fetchData();
                 // set timeout and retry as needed
             },
+
             // i is the index of the block to fetch
-            push: function (i) {
-                // if there are queueSize items in the queue
-                    // cancel the last one and make room for this one
-                // if i is not contiguous with recent, cancel others
-                // if not busy, doNext
-                // loadData needs to shift the queue
+            add: function (i) {
+                var pool = this._p;
+                // we add at index 0 (unshift)
+                // if pool is at max capacity, cancel the last one and make room for this one
+                if (pool.length === this._max) this.cancel(pool[this._max - 1]);
+
+                // if block to add is not contiguous with last request, and adjacent blocks are not ready, cancel all others
+                // adjacency readiness check necessary as request for adjacent block may have completed and been removed from pool
+                if (i !== pool[0] - 1 && i !== pool[0] + 1 && getBlockStatus(i - 1) !== READY && getBlockStatus(i + 1) !== READY) {
+                    for (var j=0; j<pool.length; j++) this.cancel(pool[j]);
+                }
+
+                pool.unshift(i);
+
+                this._doNext();
             },
-            shift: function () {
-                this._busy = false;
-                this._q.shift();
-                this.doNext();
+            // remove from pool
+            // i is the index of the block
+            remove: function (i) {
+                for (var search=0; search<this._max; search++) if (this._p[search] === i) break;
+                this._p.splice(search, 1);
             },
+            // cancel fetch and remove from pool
+            // i is the index of the block
+            cancel: function (i) {
+                getBlockRange(i).cancelFetch();
+                this.remove(i);
+            },
+            dummy: null // comma protector, temporary
         };
 
 
@@ -99,14 +120,14 @@ BH     * @param {Number}       [args.queueSize]   Optional max # of outstanding 
             cancelFetch: args.cancelFetch || function () {
                 // tell server we don't need it anymore
                 // tell browser to cancel xhr?
-                // shift queue?
+                // shift pool?
                 this.markVirgin();
             },
             failFetch: function () {
                 // BH ???
                 // tell server we don't need it anymore
                 // tell browser to cancel xhr?
-                // shift queue?
+                // shift pool?
                 this.markVirgin();
             },
             failFetch: function () {
@@ -120,6 +141,7 @@ BH     * @param {Number}       [args.queueSize]   Optional max # of outstanding 
                 for (var i=getBlockIndex(this.top); i<=last; i++) fn(i);
             },
             isDataReady: function () {
+                // BH need to consider how to deal with UNAVAILABLE
                 var isReady = true;
                 this._forEachBlock(function (i) {
                     if (dataCache.getBlockStatus(i) !== READY) isReady = false;
@@ -174,6 +196,7 @@ BH     * @param {Number}       [args.queueSize]   Optional max # of outstanding 
             loadData: function (cells, format) {
                 var me = this,
                     block = [],
+                    blockIndex = getBlockIndex(me.top),
                     numRows = me.bottom - me.top + 1,
                     format = format || 'fields';
                 function columnKey(colNum){
@@ -189,7 +212,8 @@ BH     * @param {Number}       [args.queueSize]   Optional max # of outstanding 
                     }
                     block.push(row);
                 }
-                dataCache.blocks[getBlockIndex(me.top)] = block;
+                pool.remove(blockIndex);
+                dataCache.blocks[blockIndex] = block;
                 onDataLoaded.notify(me);
             }
         });
