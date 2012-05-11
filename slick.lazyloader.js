@@ -63,15 +63,14 @@ BH     * @param {Number}       [args.poolSize]   Optional max # of outstanding X
             _max: args.poolSize || 4,
             _doNext: function () {
                 if (!this._p.length) return;
-                // fetch
-                // set timeout to check if done
-                // if not done, retry
-                function fetch(){
-                }
-                var t = setTimeout(fetch, timeout);
+                var i = this._p[0];
+                getBlockRange(i).fetchData();
+                
+                // BH up to here
+                function checkDone(attempt){
 
-                getBlockRange(this._p[0]).fetchData();
-                // set timeout and retry as needed
+                }
+                var t = setTimeout(..., timeout);
             },
 
             // i is the index of the block to fetch
@@ -118,9 +117,8 @@ BH     * @param {Number}       [args.poolSize]   Optional max # of outstanding X
         $.extend(Range.prototype, {
             fetchData: args.fetchData,
             cancelFetch: args.cancelFetch || function () {
+                // BH problem - how do we abort xhr from here?
                 // tell server we don't need it anymore
-                // tell browser to cancel xhr?
-                // shift pool?
                 this.markVirgin();
             },
             failFetch: function () {
@@ -128,10 +126,6 @@ BH     * @param {Number}       [args.poolSize]   Optional max # of outstanding X
                 // tell server we don't need it anymore
                 // tell browser to cancel xhr?
                 // shift pool?
-                this.markVirgin();
-            },
-            failFetch: function () {
-                // BH ???
                 this.markUnavailable();
             },
             // apply a function for each block in this range
